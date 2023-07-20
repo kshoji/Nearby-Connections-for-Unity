@@ -101,7 +101,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnAdvertisingStartedDelegate))]
         private static void IosOnAdvertisingStarted() =>
-            Instance.asyncOperation.Post(_ => Instance.OnAdvertisingStarted(), null);
+            Instance.asyncOperation.Post(_ => Instance.OnAdvertisingStarted?.Invoke(), null);
         [DllImport(DllName)]
         private static extern void SetAdvertisingStartedDelegate(OnAdvertisingStartedDelegate callback);
 #endif
@@ -111,7 +111,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnAdvertisingFailedDelegate))]
         private static void IosOnAdvertisingFailed() =>
-            Instance.asyncOperation.Post(_ => Instance.OnAdvertisingFailed(), null);
+            Instance.asyncOperation.Post(_ => Instance.OnAdvertisingFailed?.Invoke(), null);
         [DllImport(DllName)]
         private static extern void SetAdvertisingFailedDelegate(OnAdvertisingFailedDelegate callback);
 #endif
@@ -147,7 +147,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnDiscoveryStartedDelegate))]
         private static void IosOnDiscoveryStarted() =>
-            Instance.asyncOperation.Post(_ => Instance.OnDiscoveryStarted(), null);
+            Instance.asyncOperation.Post(_ => Instance.OnDiscoveryStarted?.Invoke(), null);
         [DllImport(DllName)]
         private static extern void SetDiscoveryStartedDelegate(OnDiscoveryStartedDelegate callback);
 #endif
@@ -157,7 +157,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnDiscoveryFailedDelegate))]
         private static void IosOnDiscoveryFailed() =>
-            Instance.asyncOperation.Post(_ => Instance.OnDiscoveryFailed(), null);
+            Instance.asyncOperation.Post(_ => Instance.OnDiscoveryFailed?.Invoke(), null);
         [DllImport(DllName)]
         private static extern void SetDiscoveryFailedDelegate(OnDiscoveryFailedDelegate callback);
 #endif
@@ -167,7 +167,15 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointDiscoveredDelegate))]
         private static void IosOnEndpointDiscovered(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnEndpointDiscovered((string)o), endpointId);
+            Instance.asyncOperation.Post(o =>
+            {
+                var discoveredEndpointId = (string)o;
+                lock (Instance.discoveredEndpoints)
+                {
+                    Instance.discoveredEndpoints.Add(discoveredEndpointId);
+                }
+                Instance.OnEndpointDiscovered?.Invoke(discoveredEndpointId);
+            }, endpointId);
         [DllImport(DllName)]
         private static extern void SetEndpointDiscoveredDelegate(OnEndpointDiscoveredDelegate callback);
 #endif
@@ -199,7 +207,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnConnectionInitiatedDelegate))]
         private static void IosOnConnectionInitiated(string endpointId, string endpointName, bool isIncomingConnection) =>
-            Instance.asyncOperation.Post(o => Instance.OnConnectionInitiated((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]), new object[] { endpointId, endpointName, isIncomingConnection });
+            Instance.asyncOperation.Post(o => Instance.OnConnectionInitiated?.Invoke((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]), new object[] { endpointId, endpointName, isIncomingConnection });
         [DllImport(DllName)]
         private static extern void SetConnectionInitiatedDelegate(OnConnectionInitiatedDelegate callback);
 #endif
@@ -209,7 +217,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnConnectionFailedDelegate))]
         private static void IosOnConnectionFailed(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnConnectionFailed((string)o), endpointId);
+            Instance.asyncOperation.Post(o => Instance.OnConnectionFailed?.Invoke((string)o), endpointId);
         [DllImport(DllName)]
         private static extern void SetConnectionFailedDelegate(OnConnectionFailedDelegate callback);
 #endif
@@ -219,7 +227,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointConnectedDelegate))]
         private static void IosOnEndpointConnected(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnEndpointConnected((string)o), endpointId);
+            Instance.asyncOperation.Post(o => Instance.OnEndpointConnected?.Invoke((string)o), endpointId);
         [DllImport(DllName)]
         private static extern void SetEndpointConnectedDelegate(OnEndpointConnectedDelegate callback);
 #endif
@@ -229,7 +237,7 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointDisconnectedDelegate))]
         private static void IosOnEndpointDisonnected(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnEndpointDisconnected((string)o), endpointId);
+            Instance.asyncOperation.Post(o => Instance.OnEndpointDisconnected?.Invoke((string)o), endpointId);
         [DllImport(DllName)]
         private static extern void SetEndpointDisconnectedDelegate(OnEndpointDisconnectedDelegate callback);
 #endif
@@ -252,11 +260,18 @@ namespace jp.kshoji.unity.nearby
         public delegate void OnReceiveDelegate(string endpointId, long id, byte[] payload);
         public event OnReceiveDelegate OnReceive;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        [AOT.MonoPInvokeCallback(typeof(OnReceiveDelegate))]
-        private static void IosOnReceive(string endpointId, long id, byte[] payload) =>
-            Instance.asyncOperation.Post(o => Instance.OnReceive((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, id, payload });
+        private delegate void IosOnReceiveDelegate(string endpointId, long id, int payloadLength, IntPtr payload);
+        [AOT.MonoPInvokeCallback(typeof(IosOnReceiveDelegate))]
+        private static void IosOnReceive(string endpointId, long id, int payloadLength, IntPtr payload)
+        {
+            // InvalidCastException: Unable to cast object of type 'IntPtr' to type 'Byte[]'.
+            byte[] mangedData = new byte[payloadLength];
+            Marshal.Copy(payload, mangedData, 0, payloadLength);
+            Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, id, mangedData });
+            Marshal.FreeHGlobal(payload);
+        }
         [DllImport(DllName)]
-        private static extern void SetReceiveDelegate(OnReceiveDelegate callback);
+        private static extern void SetReceiveDelegate(IosOnReceiveDelegate callback);
 #endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
