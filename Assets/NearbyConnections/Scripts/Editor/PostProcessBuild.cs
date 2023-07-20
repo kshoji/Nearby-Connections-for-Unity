@@ -1,4 +1,6 @@
 #if UNITY_IOS
+using System.Security.Cryptography;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEditor.iOS.Xcode;
@@ -10,7 +12,7 @@ using System.Xml;
 using UnityEditor.Android;
 #endif
 
-namespace jp.kshoji.unity.midi.Editor
+namespace jp.kshoji.unity.nearby.Editor
 {
 #if UNITY_IOS
     public class PostProcessBuild
@@ -20,27 +22,52 @@ namespace jp.kshoji.unity.midi.Editor
         {
             if (target == BuildTarget.iOS)
             {
-                var project = new PBXProject();
-                var pbxProjectPath = PBXProject.GetPBXProjectPath(pathToBuildProject);
-                project.ReadFromFile(pbxProjectPath);
-#if UNITY_2019_4_OR_NEWER
-                project.AddFrameworkToProject(project.GetUnityFrameworkTargetGuid(), "CoreMIDI.framework", true);
-                project.AddFrameworkToProject(project.GetUnityFrameworkTargetGuid(), "CoreAudioKit.framework", true);
-#else
-                project.AddFrameworkToProject(project.TargetGuidByName("Unity-iPhone"), "CoreMIDI.framework", true);
-                project.AddFrameworkToProject(project.TargetGuidByName("Unity-iPhone"), "CoreAudioKit.framework", true);
-#endif
-                project.WriteToFile(pbxProjectPath);
-
                 var infoPlist = new PlistDocument();
                 var infoPlistPath = pathToBuildProject + "/Info.plist";
                 infoPlist.ReadFromFile(infoPlistPath);
+                var infoPlistModified = false;
                 if (infoPlist.root["NSBluetoothAlwaysUsageDescription"] == null)
                 {
-                    infoPlist.root.SetString("NSBluetoothAlwaysUsageDescription", "Uses for connecting BLE MIDI devices");
+                    infoPlist.root.SetString("NSBluetoothAlwaysUsageDescription", "Uses Bluetooth for finding and connecting nearby devices");
+                    infoPlistModified = true;
+                }
+                if (infoPlist.root["NSLocalNetworkUsageDescription"] == null)
+                {
+                    infoPlist.root.SetString("NSLocalNetworkUsageDescription", "Uses networks for finding and connecting nearby devices");
+                    infoPlistModified = true;
+                }
+
+                PlistElementArray bonjourServices;
+                if (infoPlist.root["NSBonjourServices"] == null)
+                {
+                    bonjourServices = infoPlist.root.CreateArray("NSBonjourServices");
+                }
+                else
+                {
+                    bonjourServices = infoPlist.root["NSBonjourServices"].AsArray();
+                }
+
+                // TODO: apply the all using serviceIds. This serviceId is used at NearbySampleScene class.
+                const string serviceId = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
+                bonjourServices.AddString(ComputeBonjourService(serviceId));
+
+                if (infoPlistModified)
+                {
                     infoPlist.WriteToFile(infoPlistPath);
                 }
             }
+        }
+
+        private static string ComputeBonjourService(string nearbyServiceId)
+        {
+            var hash = new SHA256CryptoServiceProvider().ComputeHash(Encoding.UTF8.GetBytes(nearbyServiceId));
+            var sb = new StringBuilder();
+            // uses first 12 chars
+            for (var i = 0; i < 6; i++)
+            {
+                sb.Append(hash[i].ToString("X2"));
+            }
+            return $"_${sb}._tcp";
         }
     }
 #endif
@@ -54,28 +81,19 @@ namespace jp.kshoji.unity.midi.Editor
         {
             var androidManifest = new AndroidManifest(GetManifestPath(basePath));
 
-#if FEATURE_ANDROID_COMPANION_DEVICE
-            // change main activity
-            androidManifest.ChangeMainActivity("jp.kshoji.unity.midi.BleMidiUnityPlayerActivity");
-#endif
-
-            androidManifest.SetPermission("android.permission.BLUETOOTH");
-            androidManifest.SetPermission("android.permission.BLUETOOTH_ADMIN");
-#if FEATURE_ANDROID_COMPANION_DEVICE
-            androidManifest.SetFeature("android.software.companion_device_setup", false);
-#else
+            androidManifest.SetPermission("android.permission.BLUETOOTH", 30);
+            androidManifest.SetPermission("android.permission.BLUETOOTH_ADMIN", 30);
+            androidManifest.SetPermission("android.permission.ACCESS_COARSE_LOCATION");
             androidManifest.SetPermission("android.permission.ACCESS_FINE_LOCATION");
-#endif
-            androidManifest.SetFeature("android.hardware.bluetooth_le", true);
-
-            androidManifest.SetPermission("android.permission.BLUETOOTH_SCAN");
+            androidManifest.SetPermission("android.permission.BLUETOOTH_SCAN", null, "neverForLocation");
             androidManifest.SetPermission("android.permission.BLUETOOTH_CONNECT");
             androidManifest.SetPermission("android.permission.BLUETOOTH_ADVERTISE");
 
-            androidManifest.SetFeature("android.hardware.usb.host", false);
+            androidManifest.SetPermission("android.permission.ACCESS_WIFI_STATE");
+            androidManifest.SetPermission("android.permission.CHANGE_WIFI_STATE");
+            androidManifest.SetPermission("android.permission.NEARBY_WIFI_DEVICES");
 
-            // NOTE: If you want to use the USB MIDI feature on Oculus(Meta) Quest 2, please UNCOMMENT below to detect USB MIDI device connections.
-            // androidManifest.AddUsbIntentFilterForOculusDevices();
+            androidManifest.SetPermission("android.permission.NFC");
 
             androidManifest.Save();
         }
@@ -130,7 +148,7 @@ namespace jp.kshoji.unity.midi.Editor
             return attr;
         }
 
-        internal void SetPermission(string permission)
+        internal void SetPermission(string permission, int? maxSdkVersion = null, string usesPermissionFlags = null)
         {
             if (HasPermission(permission))
             {
@@ -139,6 +157,14 @@ namespace jp.kshoji.unity.midi.Editor
 
             var child = CreateElement("uses-permission");
             child.Attributes.Append(CreateAndroidAttribute("name", permission));
+            if (maxSdkVersion.HasValue)
+            {
+                child.Attributes.Append(CreateAndroidAttribute("maxSdkVersion", maxSdkVersion.Value.ToString()));
+            }
+            if (usesPermissionFlags != null)
+            {
+                child.Attributes.Append(CreateAndroidAttribute("usesPermissionFlags", usesPermissionFlags));
+            }
 
             var manifest = SelectSingleNode("/manifest");
             manifest?.AppendChild(child);
@@ -147,29 +173,6 @@ namespace jp.kshoji.unity.midi.Editor
         private bool HasPermission(string permission)
         {
             return HasElement("uses-permission", permission);
-        }
-
-        internal void SetFeature(string feature, bool required)
-        {
-            if (HasFeature(feature))
-            {
-                return;
-            }
-
-            var child = CreateElement("uses-feature");
-            child.Attributes.Append(CreateAndroidAttribute("name", feature));
-            if (required)
-            {
-                child.Attributes.Append(CreateAndroidAttribute("required", "true"));
-            }
-
-            var manifest = SelectSingleNode("/manifest");
-            manifest?.AppendChild(child);
-        }
-
-        private bool HasFeature(string feature)
-        {
-            return HasElement("uses-feature", feature);
         }
 
         private bool HasElement(string elementName, string nameValue)
@@ -196,147 +199,6 @@ namespace jp.kshoji.unity.midi.Editor
             }
 
             return false;
-        }
-
-        internal void AddUsbIntentFilterForOculusDevices()
-        {
-            var application = SelectSingleNode("/manifest/application");
-            if (application == null)
-            {
-                return;
-            }
-
-            foreach (var childNode in application.ChildNodes)
-            {
-                if (((XmlNode)childNode).Name != "activity")
-                {
-                    continue;
-                }
-
-                var activity = (XmlNode)childNode;
-                var isUnityActivity = false;
-                foreach (XmlNode metaData in activity.ChildNodes)
-                {
-                    if (metaData == null || metaData.Name != "meta-data" || metaData.Attributes == null)
-                    {
-                        continue;
-                    }
-
-                    var name = metaData.Attributes["android:name"];
-                    var value = metaData.Attributes["android:value"];
-                    if (name != null && name.Value == "unityplayer.UnityActivity" &&
-                        value != null && value.Value == "true")
-                    {
-                        isUnityActivity = true;
-                        break;
-                    }
-                }
-
-                if (isUnityActivity)
-                {
-                    var metaData = CreateElement("meta-data");
-                    metaData.Attributes.Append(CreateAndroidAttribute("name", "android.hardware.usb.action.USB_DEVICE_ATTACHED"));
-                    metaData.Attributes.Append(CreateAndroidAttribute("resource", "@xml/device_filter"));
-                    if (!HasUsbDeviceAttachedMetaData(activity))
-                    {
-                        activity.AppendChild(metaData);
-                    }
-
-                    foreach (XmlNode intentFilter in activity.ChildNodes)
-                    {
-                        if (intentFilter == null || intentFilter.Name != "intent-filter")
-                        {
-                            continue;
-                        }
-
-                        var action = CreateElement("action");
-                        action.Attributes.Append(CreateAndroidAttribute("name", "android.hardware.usb.action.USB_DEVICE_ATTACHED"));
-                        if (!HasUsbDeviceAttachedIntentFilter(activity))
-                        {
-                            intentFilter.AppendChild(action);
-                        }
-                    }
-
-                    break;
-                }
-            }
-        }
-
-        private bool HasUsbDeviceAttachedMetaData(XmlNode activity)
-        {
-            foreach (XmlNode metaData in activity.ChildNodes)
-            {
-                if (metaData == null || metaData.Name != "meta-data" || metaData.Attributes == null)
-                {
-                    continue;
-                }
-                
-                var nameAttribute = metaData.Attributes["android:name"];
-                var valueAttribute = metaData.Attributes["android:resource"];
-                if (nameAttribute != null && nameAttribute.Value == "android.hardware.usb.action.USB_DEVICE_ATTACHED" &&
-                    valueAttribute != null && valueAttribute.Value == "@xml/device_filter")
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private bool HasUsbDeviceAttachedIntentFilter(XmlNode activity)
-        {
-            foreach (XmlNode intentFilter in activity.ChildNodes)
-            {
-                if (intentFilter == null || intentFilter.Name != "intent-filter" || intentFilter.Attributes == null)
-                {
-                    continue;
-                }
-
-                foreach (XmlNode action in intentFilter.ChildNodes)
-                {
-                    if (action == null || action.Name != "action" || action.Attributes == null)
-                    {
-                        continue;
-                    }
-
-                    var nameAttribute = action.Attributes["android:name"];
-                    if (nameAttribute != null && nameAttribute.Value == "android.hardware.usb.action.USB_DEVICE_ATTACHED")
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        internal void ChangeMainActivity(string activityClass)
-        {
-            var applications = DocumentElement.GetElementsByTagName("application");
-            foreach (XmlElement application in applications)
-            {
-                var activities = application.GetElementsByTagName("activity");
-                foreach (XmlElement activity in activities)
-                {
-                    var isUnityActivity = false;
-                    var metas = application.GetElementsByTagName("meta-data");
-                    foreach (XmlElement meta in metas)
-                    {
-                        if (meta.Attributes["android:name"]?.Value == "unityplayer.UnityActivity" &&
-                            meta.Attributes["android:value"]?.Value.ToLower() == "true")
-                        {
-                            isUnityActivity = true;
-                            break;
-                        }
-                    }
-
-                    if (isUnityActivity)
-                    {
-                        activity.Attributes.Append(CreateAndroidAttribute("name", activityClass));
-                        break;
-                    }
-                }
-            }
         }
     }
 #endif
