@@ -1,0 +1,26 @@
+{
+    "name": "jp.kshoji.unity.nearby",
+    "displayName": "Nearby Connections for Unity",
+    "description": "Nearby Connections plugin implementation",
+    "version": "0.0.1",
+    "unity": "2018.4",
+    "license": "Apache License 2.0",
+    "repository": {
+        "type": "git",
+        "url": "ssh://git@github.com/kshoji/Nearby-Connections-for-Unity.git"
+    },
+    "author": "Kaoru Shoji",
+    "changelogUrl": "https://github.com/kshoji/Nearby-Connections-for-Unity/blob/main/CHANGELOG.md",
+    "documentationUrl": "https://github.com/kshoji/Nearby-Connections-for-Unity/blob/main/README.md",
+    "licensesUrl": "https://github.com/kshoji/Nearby-Connections-for-Unity/blob/main/LICENSE",
+    "samples": [
+        {
+            "displayName": "Sample",
+            "description": "The full feature sample for this package.",
+            "path": "Samples~/SampleProject"
+        }
+    ],
+    "keywords": [
+        "Nearby", "Connections", "Android", "iOS", "macOS"
+    ]
+}
