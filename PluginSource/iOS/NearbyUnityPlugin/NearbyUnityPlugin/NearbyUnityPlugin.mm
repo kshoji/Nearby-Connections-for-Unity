@@ -121,6 +121,17 @@ OnEndpointDiscoveredDelegate endpointDisoveredCallback;
     }
 }
 
+typedef void ( __cdecl *OnEndpointLostDelegate )( const char* );
+OnEndpointLostDelegate endpointLostCallback;
+- (void)onEndpointLostWithEndpointId:(NSString * _Nonnull)endpointId {
+#ifdef DEBUG
+    NSLog(@"onEndpointLostWithEndpointId called. endpointId: %@, %s", endpointId, [endpointId cStringUsingEncoding:NSUTF8StringEncoding]);
+#endif
+    if (endpointLostCallback) {
+        endpointLostCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding]);
+    }
+}
+
 typedef void ( __cdecl *OnReceiveDelegate )( const char*, long, int, unsigned char* );
 OnReceiveDelegate receiveCallback;
 - (void)onReceiveWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId payload:(NSArray<NSNumber *> * _Nonnull)payload {
@@ -235,6 +246,10 @@ extern "C" {
 
     void SetEndpointDiscoveredDelegate(OnEndpointDiscoveredDelegate callback) {
         endpointDisoveredCallback = callback;
+    }
+
+    void SetEndpointLostDelegate(OnEndpointLostDelegate callback) {
+        endpointLostCallback = callback;
     }
 
     void SetEndpointConnectedDelegate(OnEndpointConnectedDelegate callback) {

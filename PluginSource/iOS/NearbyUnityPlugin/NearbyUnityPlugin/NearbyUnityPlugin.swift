@@ -23,6 +23,7 @@ import NearbyConnections
     func onDiscoveryStarted()
     func onDiscoveryFailed()
     func onEndpointDiscovered(endpointId: String)
+    func onEndpointLost(endpointId: String)
 }
 
 @objc protocol TransmissionEventDelegate : AnyObject {
@@ -250,6 +251,20 @@ struct DiscoveredEndpoint: Identifiable {
 #endif
         let payloadID = PayloadID.unique()
         let endpointIDs = connections.map{ $0.endpointID }
+#if DEBUG
+        connections.forEach {
+            print("send payload to endpoint: \($0.endpointID)")
+        }
+#endif
+
+        if (connections.count < 1) {
+            // no endpoints connected
+#if DEBUG
+            print("send payload: no endpoints connected.")
+#endif
+            return
+        }
+
         let token = connectionManager?.send(payload, to: endpointIDs, id: payloadID)
         let payload = Payload(
             id: payloadID,
@@ -315,7 +330,8 @@ extension NearbyUnityPlugin: DiscovererDelegate {
         }
         endpoints.remove(at: index)
         
-        // TODO onEndpointDismissed(endpointId: endpointID)
+        // Notify to Unity
+        discoveryEventDelegate?.onEndpointLost(endpointId: endpointID)
     }
 }
 
@@ -458,8 +474,18 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             connectionEventDelegate?.onEndpointConnected(endpointId: endpointID)
         case .disconnected:
             guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
+#if DEBUG
+                print("connectionManager .disconnected endpointID: \(endpointID) not found")
+                connections.forEach {
+                    print("connectionManager .disconnected connections' endpointID: \($0.endpointID)")
+                }
+#endif
                 return
             }
+#if DEBUG
+            // connectionManager .disconnected endpointID: PWQ2 found. index: 0
+            print("connectionManager .disconnected endpointID: \(endpointID) found. index: \(index)")
+#endif
             connections.remove(at: index)
             
             // Notify to Unity

@@ -139,6 +139,16 @@ namespace jp.kshoji.unity.nearby
                     }
                     Instance.OnEndpointDiscovered?.Invoke(discoveredEndpointId);
                 }, endpointId);
+            void onEndpointLost(string endpointId)
+                => Instance.asyncOperation.Post(o =>
+                {
+                    var lostEndpointId = (string)o;
+                    lock (Instance.discoveredEndpoints)
+                    {
+                        Instance.discoveredEndpoints.Remove(lostEndpointId);
+                    }
+                    Instance.OnEndpointLost?.Invoke(lostEndpointId);
+                }, endpointId);
         }
 #endif
 
@@ -180,6 +190,24 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetEndpointDiscoveredDelegate(OnEndpointDiscoveredDelegate callback);
 #endif
 
+        public delegate void OnEndpointLostDelegate(string endpointId);
+        public event OnEndpointLostDelegate OnEndpointLost;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        [AOT.MonoPInvokeCallback(typeof(OnEndpointDiscoveredDelegate))]
+        private static void IosOnEndpointLost(string endpointId) =>
+            Instance.asyncOperation.Post(o =>
+            {
+                var lostEndpointId = (string)o;
+                lock (Instance.discoveredEndpoints)
+                {
+                    Instance.discoveredEndpoints.Remove(lostEndpointId);
+                }
+                Instance.OnEndpointLost?.Invoke(lostEndpointId);
+            }, endpointId);
+        [DllImport(DllName)]
+        private static extern void SetEndpointLostDelegate(OnEndpointLostDelegate callback);
+#endif
+
 #if UNITY_ANDROID && !UNITY_EDITOR
         /// <summary>
         /// Connection event listener
@@ -196,7 +224,15 @@ namespace jp.kshoji.unity.nearby
             void onConnectionFailed(string endpointId)
                 => Instance.asyncOperation.Post(o => Instance.OnConnectionFailed?.Invoke((string)o), endpointId);
             void onEndpointConnected(string endpointId)
-                => Instance.asyncOperation.Post(o => Instance.OnEndpointConnected?.Invoke((string)o), endpointId);
+                => Instance.asyncOperation.Post(o =>
+                {
+                    var connectedEndpointId = (string)o;
+                    lock (Instance.discoveredEndpoints)
+                    {
+                        Instance.discoveredEndpoints.Remove(connectedEndpointId);
+                    }
+                    Instance.OnEndpointConnected?.Invoke(connectedEndpointId);
+                }, endpointId);
             void onEndpointDisconnected(string endpointId)
                 => Instance.asyncOperation.Post(o => Instance.OnEndpointDisconnected?.Invoke((string)o), endpointId);
         }
@@ -227,7 +263,15 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointConnectedDelegate))]
         private static void IosOnEndpointConnected(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnEndpointConnected?.Invoke((string)o), endpointId);
+            Instance.asyncOperation.Post(o =>
+            {
+                var connectedEndpointId = (string)o;
+                lock (Instance.discoveredEndpoints)
+                {
+                    Instance.discoveredEndpoints.Remove(connectedEndpointId);
+                }
+                Instance.OnEndpointConnected?.Invoke(connectedEndpointId);
+            }, endpointId);
         [DllImport(DllName)]
         private static extern void SetEndpointConnectedDelegate(OnEndpointConnectedDelegate callback);
 #endif

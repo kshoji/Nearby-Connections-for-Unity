@@ -35,6 +35,7 @@ import java.util.Set;
 
 public class ConnectionsManager {
     private static final String TAG = "ConnectionsManager";
+    private static final boolean USE_LOGS = false;
 
     /**
      * These permissions are required before connecting to Nearby Connections.
@@ -167,45 +168,69 @@ public class ConnectionsManager {
             new ConnectionLifecycleCallback() {
                 @Override
                 public void onConnectionInitiated(@NonNull String endpointId, ConnectionInfo connectionInfo) {
-                    Log.d(TAG,
-                            String.format(
-                                    "onConnectionInitiated(endpointId=%s, endpointName=%s)",
-                                    endpointId, connectionInfo.getEndpointName()));
+                    if (USE_LOGS) {
+                        Log.d(TAG,
+                                String.format(
+                                        "onConnectionInitiated(endpointId=%s, endpointName=%s)",
+                                        endpointId, connectionInfo.getEndpointName()));
+                    }
                     Endpoint endpoint = new Endpoint(endpointId, connectionInfo.getEndpointName());
-                    pendingConnections.put(endpointId, endpoint);
+                    synchronized (pendingConnections) {
+                        pendingConnections.put(endpointId, endpoint);
+                    }
                     ConnectionsManager.this.onConnectionInitiated(endpoint.getId(), connectionInfo);
                 }
 
                 @Override
                 public void onConnectionResult(@NonNull String endpointId, @NonNull ConnectionResolution result) {
-                    Log.d(TAG, String.format("onConnectionResponse(endpointId=%s, result=%s)", endpointId, result));
+                    if (USE_LOGS) {
+                        Log.d(TAG, String.format("onConnectionResponse(endpointId=%s, result=%s)", endpointId, result));
+                    }
 
                     // We're no longer connecting
                     isConnecting = false;
 
+                    Endpoint pendingConnction;
+                    synchronized (pendingConnections) {
+                        pendingConnction = pendingConnections.remove(endpointId);
+                    }
                     if (!result.getStatus().isSuccess()) {
-                        Log.w(TAG,
-                                String.format(
-                                        "Connection failed. Received status [%d]%s.",
-                                        result.getStatus().getStatusCode(),
-                                        result.getStatus().getStatusMessage() != null
-                                            ? result.getStatus().getStatusMessage()
-                                            : ConnectionsStatusCodes.getStatusCodeString(result.getStatus().getStatusCode())
-                                )
-                        );
-                        onConnectionFailed(pendingConnections.remove(endpointId));
+                        if (USE_LOGS) {
+                            Log.w(TAG,
+                                    String.format(
+                                            "Connection failed. Received status [%d]%s.",
+                                            result.getStatus().getStatusCode(),
+                                            result.getStatus().getStatusMessage() != null
+                                                    ? result.getStatus().getStatusMessage()
+                                                    : ConnectionsStatusCodes.getStatusCodeString(result.getStatus().getStatusCode())
+                                    )
+                            );
+                        }
+                        if (pendingConnction != null) {
+                            onConnectionFailed(pendingConnction);
+                        }
                         return;
                     }
-                    connectedToEndpoint(pendingConnections.remove(endpointId));
+
+                    if (pendingConnction != null) {
+                        connectedToEndpoint(pendingConnction);
+                    }
                 }
 
                 @Override
                 public void onDisconnected(@NonNull String endpointId) {
-                    if (!establishedConnections.containsKey(endpointId)) {
-                        Log.w(TAG,"Unexpected disconnection from endpoint " + endpointId);
-                        return;
+                    if (USE_LOGS) {
+                        Log.d(TAG, "onDisconnected from endpoint " + endpointId);
                     }
-                    disconnectedFromEndpoint(establishedConnections.get(endpointId));
+                    synchronized (establishedConnections) {
+                        if (!establishedConnections.containsKey(endpointId)) {
+                            if (USE_LOGS) {
+                                Log.w(TAG, "Unexpected disconnection from endpoint " + endpointId);
+                            }
+                            return;
+                        }
+                        disconnectedFromEndpoint(establishedConnections.get(endpointId));
+                    }
                 }
             };
 
@@ -245,7 +270,9 @@ public class ConnectionsManager {
                         new OnSuccessListener<Void>() {
                             @Override
                             public void onSuccess(Void unusedResult) {
-                                Log.v(TAG, "Now advertising endpoint " + localEndpointName);
+                                if (USE_LOGS) {
+                                    Log.v(TAG, "Now advertising endpoint " + localEndpointName);
+                                }
                                 onAdvertisingStarted();
                             }
                         })
@@ -254,7 +281,9 @@ public class ConnectionsManager {
                             @Override
                             public void onFailure(@NonNull Exception e) {
                                 isAdvertising = false;
-                                Log.w(TAG, "startAdvertising() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "startAdvertising() failed.", e);
+                                }
                                 onAdvertisingFailed();
                             }
                         });
@@ -288,7 +317,9 @@ public class ConnectionsManager {
      */
     protected void startDiscovering(final String serviceId, final int strategy) {
         isDiscovering = true;
-        discoveredEndpoints.clear();
+        synchronized (discoveredEndpoints) {
+            discoveredEndpoints.clear();
+        }
         DiscoveryOptions.Builder discoveryOptions = new DiscoveryOptions.Builder();
         discoveryOptions.setStrategy(getStrategy(strategy));
 
@@ -298,21 +329,31 @@ public class ConnectionsManager {
                         new EndpointDiscoveryCallback() {
                             @Override
                             public void onEndpointFound(@NonNull String endpointId, @NonNull DiscoveredEndpointInfo info) {
-                                Log.d(TAG,
-                                        String.format(
-                                                "onEndpointFound(endpointId=%s, serviceId=%s, endpointName=%s)",
-                                                endpointId, info.getServiceId(), info.getEndpointName()));
+                                if (USE_LOGS) {
+                                    Log.d(TAG,
+                                            String.format(
+                                                    "onEndpointFound(endpointId=%s, serviceId=%s, endpointName=%s)",
+                                                    endpointId, info.getServiceId(), info.getEndpointName()));
+                                }
 
                                 if (serviceId.equals(info.getServiceId())) {
                                     Endpoint endpoint = new Endpoint(endpointId, info.getEndpointName());
-                                    discoveredEndpoints.put(endpointId, endpoint);
+                                    synchronized (discoveredEndpoints) {
+                                        discoveredEndpoints.put(endpointId, endpoint);
+                                    }
                                     onEndpointDiscovered(endpoint);
                                 }
                             }
 
                             @Override
                             public void onEndpointLost(@NonNull String endpointId) {
-                                Log.d(TAG, String.format("onEndpointLost(endpointId=%s)", endpointId));
+                                if (USE_LOGS) {
+                                    Log.d(TAG, String.format("onEndpointLost(endpointId=%s)", endpointId));
+                                }
+                                synchronized (discoveredEndpoints) {
+                                    discoveredEndpoints.remove(endpointId);
+                                }
+                                ConnectionsManager.this.onEndpointLost(endpointId);
                             }
                         },
                         discoveryOptions.build())
@@ -328,7 +369,9 @@ public class ConnectionsManager {
                             @Override
                             public void onFailure(@NonNull Exception e) {
                                 isDiscovering = false;
-                                Log.w(TAG, "startDiscovering() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "startDiscovering() failed.", e);
+                                }
                                 onDiscoveryFailed();
                             }
                         });
@@ -363,20 +406,34 @@ public class ConnectionsManager {
         discoveryEventListener.onEndpointDiscovered(endpoint.getId());
     }
 
+    /**
+     * Called when a remote endpoint is lost.
+     */
+    protected void onEndpointLost(String endpointId) {
+        discoveryEventListener.onEndpointLost(endpointId);
+    }
+
     // connections
 
     /** Disconnects from the given endpoint. */
-    protected void disconnect(Endpoint endpoint) {
-        connectionsClient.disconnectFromEndpoint(endpoint.getId());
-        establishedConnections.remove(endpoint.getId());
+    protected void disconnect(String endpointId) {
+        Log.d(TAG, "disconnect " + endpointId);
+        connectionsClient.disconnectFromEndpoint(endpointId);
+        connectionEventListener.onEndpointDisconnected(endpointId);
+        synchronized (establishedConnections) {
+            establishedConnections.remove(endpointId);
+        }
     }
 
     /** Disconnects from all currently connected endpoints. */
     protected void disconnectFromAllEndpoints() {
-        for (Endpoint endpoint : establishedConnections.values()) {
-            connectionsClient.disconnectFromEndpoint(endpoint.getId());
+        synchronized (establishedConnections) {
+            for (Endpoint endpoint : establishedConnections.values()) {
+                connectionsClient.disconnectFromEndpoint(endpoint.getId());
+                connectionEventListener.onEndpointDisconnected(endpoint.getId());
+            }
+            establishedConnections.clear();
         }
-        establishedConnections.clear();
     }
 
     /** Resets and clears all state in Nearby Connections. */
@@ -385,9 +442,15 @@ public class ConnectionsManager {
         isAdvertising = false;
         isDiscovering = false;
         isConnecting = false;
-        discoveredEndpoints.clear();
-        pendingConnections.clear();
-        establishedConnections.clear();
+        synchronized (discoveredEndpoints) {
+            discoveredEndpoints.clear();
+        }
+        synchronized (pendingConnections) {
+            pendingConnections.clear();
+        }
+        synchronized (establishedConnections) {
+            establishedConnections.clear();
+        }
     }
 
     /**
@@ -396,14 +459,21 @@ public class ConnectionsManager {
      * if we successfully reached the device.
      */
     protected void connectToEndpoint(final String localEndpointName, final String endpointId) {
-        Endpoint endpoint = discoveredEndpoints.get(endpointId);
+        Endpoint endpoint;
+        synchronized (discoveredEndpoints) {
+            endpoint = discoveredEndpoints.get(endpointId);
+        }
         if (endpoint == null)
         {
-            Log.v(TAG, "The endpoint ID" + endpointId + " not found");
+            if (USE_LOGS) {
+                Log.v(TAG, "The endpoint ID" + endpointId + " not found");
+            }
             return;
         }
 
-        Log.v(TAG, "Sending a connection request to endpoint " + endpoint);
+        if (USE_LOGS) {
+            Log.v(TAG, "Sending a connection request to endpoint " + endpoint);
+        }
         // Mark ourselves as connecting so we don't connect multiple times
         isConnecting = true;
 
@@ -414,7 +484,9 @@ public class ConnectionsManager {
                         new OnFailureListener() {
                             @Override
                             public void onFailure(@NonNull Exception e) {
-                                Log.w(TAG, "requestConnection() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "requestConnection() failed.", e);
+                                }
                                 isConnecting = false;
                                 onConnectionFailed(endpoint);
                             }
@@ -427,14 +499,22 @@ public class ConnectionsManager {
     }
 
     private void connectedToEndpoint(Endpoint endpoint) {
-        Log.d(TAG, String.format("connectedToEndpoint(endpoint=%s)", endpoint));
-        establishedConnections.put(endpoint.getId(), endpoint);
+        if (USE_LOGS) {
+            Log.d(TAG, String.format("connectedToEndpoint(endpoint=%s)", endpoint));
+        }
+        synchronized (establishedConnections) {
+            establishedConnections.put(endpoint.getId(), endpoint);
+        }
         onEndpointConnected(endpoint);
     }
 
     private void disconnectedFromEndpoint(Endpoint endpoint) {
-        Log.d(TAG, String.format("disconnectedFromEndpoint(endpoint=%s)", endpoint));
-        establishedConnections.remove(endpoint.getId());
+        if (USE_LOGS) {
+            Log.d(TAG, String.format("disconnectedFromEndpoint(endpoint=%s)", endpoint));
+        }
+        synchronized (establishedConnections) {
+            establishedConnections.remove(endpoint.getId());
+        }
         onEndpointDisconnected(endpoint);
     }
 
@@ -473,14 +553,18 @@ public class ConnectionsManager {
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(@NonNull Void unused) {
-                        Log.w(TAG, "acceptConnection() succeeded.");
+                        if (USE_LOGS) {
+                            Log.w(TAG, "acceptConnection() succeeded.");
+                        }
                     }
                 })
                 .addOnFailureListener(
                         new OnFailureListener() {
                             @Override
                             public void onFailure(@NonNull Exception e) {
-                                Log.w(TAG, "acceptConnection() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "acceptConnection() failed.", e);
+                                }
                             }
                         });
     }
@@ -492,14 +576,18 @@ public class ConnectionsManager {
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(@NonNull Void unused) {
-                        Log.w(TAG, "rejectConnection() succeeded.");
+                        if (USE_LOGS) {
+                            Log.w(TAG, "rejectConnection() succeeded.");
+                        }
                     }
                 })
                 .addOnFailureListener(
                         new OnFailureListener() {
                             @Override
                             public void onFailure(@NonNull Exception e) {
-                                Log.w(TAG, "rejectConnection() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "rejectConnection() failed.", e);
+                                }
                             }
                         });
     }
@@ -513,7 +601,9 @@ public class ConnectionsManager {
      */
     protected void send(byte[] bytes) {
         Payload payload = Payload.fromBytes(bytes);
-        send(payload, establishedConnections.keySet());
+        synchronized (establishedConnections) {
+            send(payload, establishedConnections.keySet());
+        }
     }
 
     /**
@@ -536,7 +626,9 @@ public class ConnectionsManager {
                         new OnFailureListener() {
                             @Override
                             public void onFailure(@NonNull Exception e) {
-                                Log.w(TAG, "sendPayload() failed.", e);
+                                if (USE_LOGS) {
+                                    Log.w(TAG, "sendPayload() failed.", e);
+                                }
                             }
                         });
     }
@@ -546,15 +638,25 @@ public class ConnectionsManager {
             new PayloadCallback() {
                 @Override
                 public void onPayloadReceived(@NonNull String endpointId, @NonNull Payload payload) {
-                    Log.d(TAG, String.format("onPayloadReceived(endpointId=%s, payload=%s)", endpointId, payload));
-                    onReceive(establishedConnections.get(endpointId), payload);
+                    if (USE_LOGS) {
+                        Log.d(TAG, String.format("onPayloadReceived(endpointId=%s, payload=%s)", endpointId, payload));
+                    }
+                    Endpoint endpoint;
+                    synchronized (establishedConnections) {
+                        endpoint = establishedConnections.get(endpointId);
+                    }
+                    if (endpoint != null) {
+                        onReceive(endpoint, payload);
+                    }
                 }
 
                 @Override
                 public void onPayloadTransferUpdate(@NonNull String endpointId, @NonNull PayloadTransferUpdate update) {
-                    Log.d(TAG,
-                            String.format(
-                                    "onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                    if (USE_LOGS) {
+                        Log.d(TAG,
+                                String.format(
+                                        "onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                    }
                 }
             };
 
