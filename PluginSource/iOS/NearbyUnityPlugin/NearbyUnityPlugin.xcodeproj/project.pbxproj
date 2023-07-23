@@ -10,19 +10,10 @@
 		7269A3DB2A68EE2B001272C4 /* NearbyUnityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7269A3DA2A68EE2B001272C4 /* NearbyUnityPlugin.swift */; };
 		7269A3E42A68EE97001272C4 /* NearbyUnityPlugin.mm in Sources */ = {isa = PBXBuildFile; fileRef = 7269A3E32A68EE97001272C4 /* NearbyUnityPlugin.mm */; };
 		7269A3E72A68EFC3001272C4 /* NearbyConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 7269A3E62A68EFC3001272C4 /* NearbyConnections */; };
+		7269A4E02A6CDF14001272C4 /* NearbyUnityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7269A3DA2A68EE2B001272C4 /* NearbyUnityPlugin.swift */; };
+		7269A4E12A6CDF14001272C4 /* NearbyUnityPlugin.mm in Sources */ = {isa = PBXBuildFile; fileRef = 7269A3E32A68EE97001272C4 /* NearbyUnityPlugin.mm */; };
+		7269A4E32A6CDF18001272C4 /* NearbyConnections in Frameworks */ = {isa = PBXBuildFile; productRef = 7269A4E22A6CDF18001272C4 /* NearbyConnections */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		7269A3D52A68EE2B001272C4 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "include/$(PRODUCT_NAME)";
-			dstSubfolderSpec = 16;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		7269A3D72A68EE2B001272C4 /* libNearbyUnityPlugin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libNearbyUnityPlugin.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -30,6 +21,7 @@
 		7269A3E12A68EE49001272C4 /* nearby */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = nearby; path = ../nearby; sourceTree = "<group>"; };
 		7269A3E22A68EE97001272C4 /* NearbyUnityPlugin-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NearbyUnityPlugin-Bridging-Header.h"; sourceTree = "<group>"; };
 		7269A3E32A68EE97001272C4 /* NearbyUnityPlugin.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = NearbyUnityPlugin.mm; sourceTree = "<group>"; };
+		7269A4D72A6CDF04001272C4 /* libNearbyUnityPlugin-osx.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libNearbyUnityPlugin-osx.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,6 +30,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				7269A3E72A68EFC3001272C4 /* NearbyConnections in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7269A4D52A6CDF04001272C4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7269A4E32A6CDF18001272C4 /* NearbyConnections in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +58,7 @@
 			isa = PBXGroup;
 			children = (
 				7269A3D72A68EE2B001272C4 /* libNearbyUnityPlugin.a */,
+				7269A4D72A6CDF04001272C4 /* libNearbyUnityPlugin-osx.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -88,7 +89,6 @@
 			buildPhases = (
 				7269A3D32A68EE2B001272C4 /* Sources */,
 				7269A3D42A68EE2B001272C4 /* Frameworks */,
-				7269A3D52A68EE2B001272C4 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -102,6 +102,25 @@
 			productReference = 7269A3D72A68EE2B001272C4 /* libNearbyUnityPlugin.a */;
 			productType = "com.apple.product-type.library.static";
 		};
+		7269A4D62A6CDF04001272C4 /* NearbyUnityPlugin-osx */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7269A4DF2A6CDF04001272C4 /* Build configuration list for PBXNativeTarget "NearbyUnityPlugin-osx" */;
+			buildPhases = (
+				7269A4D42A6CDF04001272C4 /* Sources */,
+				7269A4D52A6CDF04001272C4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "NearbyUnityPlugin-osx";
+			packageProductDependencies = (
+				7269A4E22A6CDF18001272C4 /* NearbyConnections */,
+			);
+			productName = "NearbyUnityPlugin-osx";
+			productReference = 7269A4D72A6CDF04001272C4 /* libNearbyUnityPlugin-osx.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -113,6 +132,9 @@
 				LastUpgradeCheck = 1420;
 				TargetAttributes = {
 					7269A3D62A68EE2B001272C4 = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					7269A4D62A6CDF04001272C4 = {
 						CreatedOnToolsVersion = 14.2;
 					};
 				};
@@ -131,6 +153,7 @@
 			projectRoot = "";
 			targets = (
 				7269A3D62A68EE2B001272C4 /* NearbyUnityPlugin */,
+				7269A4D62A6CDF04001272C4 /* NearbyUnityPlugin-osx */,
 			);
 		};
 /* End PBXProject section */
@@ -142,6 +165,15 @@
 			files = (
 				7269A3DB2A68EE2B001272C4 /* NearbyUnityPlugin.swift in Sources */,
 				7269A3E42A68EE97001272C4 /* NearbyUnityPlugin.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7269A4D42A6CDF04001272C4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7269A4E02A6CDF14001272C4 /* NearbyUnityPlugin.swift in Sources */,
+				7269A4E12A6CDF14001272C4 /* NearbyUnityPlugin.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,6 +322,40 @@
 			};
 			name = Release;
 		};
+		7269A4DD2A6CDF04001272C4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9EC4GQVC4L;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXECUTABLE_PREFIX = lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "NearbyUnityPlugin/NearbyUnityPlugin-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		7269A4DE2A6CDF04001272C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 9EC4GQVC4L;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXECUTABLE_PREFIX = lib;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "NearbyUnityPlugin/NearbyUnityPlugin-Bridging-Header.h";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -311,10 +377,23 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		7269A4DF2A6CDF04001272C4 /* Build configuration list for PBXNativeTarget "NearbyUnityPlugin-osx" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7269A4DD2A6CDF04001272C4 /* Debug */,
+				7269A4DE2A6CDF04001272C4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		7269A3E62A68EFC3001272C4 /* NearbyConnections */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NearbyConnections;
+		};
+		7269A4E22A6CDF18001272C4 /* NearbyConnections */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = NearbyConnections;
 		};

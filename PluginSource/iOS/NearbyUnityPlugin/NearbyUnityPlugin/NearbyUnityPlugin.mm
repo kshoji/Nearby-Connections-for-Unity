@@ -6,7 +6,11 @@
 //
 
 #import <Foundation/Foundation.h>
+#if TARGET_OS_IOS
 #import "NearbyUnityPlugin-Swift.h"
+#else
+#import "NearbyUnityPlugin_osx-Swift.h"
+#endif
 #import "NearbyUnityPlugin-Bridging-Header.h"
 
 @interface NearbyConnectionsPlugin : NSObject<AdvertisingEventDelegate, ConnectionEventDelegate, DiscoveryEventDelegate, TransmissionEventDelegate>
