@@ -73,6 +73,102 @@ namespace jp.kshoji.unity.nearby.Editor
 #endif
 
 #if UNITY_ANDROID
+    public class ModifyGradleConfigurations : IPostGenerateGradleAndroidProject
+    {
+        public int callbackOrder => 98;
+        public void OnPostGenerateGradleAndroidProject(string basePath)
+        {
+            ModifyBuildGradle(basePath);
+            ModifyGradleProperties(basePath);
+        }
+
+        private static void ModifyBuildGradle(string path)
+        {
+            var unityLibraryBuildGradlePath = Path.Combine(path, "build.gradle");
+            var unityLibraryBuildGradleLines = File.ReadLines(unityLibraryBuildGradlePath);
+            var updatedUnityLibraryBuildGradleText = new StringBuilder();
+            var nextLineIsDependenciesFirstLine = false;
+            foreach (var gradle in unityLibraryBuildGradleLines)
+            {
+                if (nextLineIsDependenciesFirstLine)
+                {
+                    // Add the original line
+                    updatedUnityLibraryBuildGradleText.Append(gradle);
+                    updatedUnityLibraryBuildGradleText.AppendLine();
+                    // Add the dependency
+                    updatedUnityLibraryBuildGradleText.Append("    implementation 'com.google.android.gms:play-services-nearby:18.7.0'");
+                    updatedUnityLibraryBuildGradleText.AppendLine();
+                    // Add the dependency
+                    updatedUnityLibraryBuildGradleText.Append("    implementation 'androidx.appcompat:appcompat:1.6.1'");
+                    updatedUnityLibraryBuildGradleText.AppendLine();
+
+                    nextLineIsDependenciesFirstLine = false;
+                }
+                else if (gradle.Contains("dependencies"))
+                {
+                    // Add the original line
+                    updatedUnityLibraryBuildGradleText.Append(gradle);
+                    updatedUnityLibraryBuildGradleText.AppendLine();
+                    nextLineIsDependenciesFirstLine = true;
+                }
+                else
+                {
+                    if (gradle.Contains("com.google.android.gms:play-services-nearby"))
+                    {
+                        // NOTE: ignore the original configuration, use version 18.7.0
+                        continue;
+                    }
+
+                    if (gradle.Contains("androidx.appcompat:appcompat"))
+                    {
+                        // NOTE: ignore the original configuration, use version 1.6.1
+                        continue;
+                    }
+
+                    // Add the original line
+                    updatedUnityLibraryBuildGradleText.Append(gradle);
+                    updatedUnityLibraryBuildGradleText.AppendLine();
+                }
+            }
+
+            File.WriteAllText(unityLibraryBuildGradlePath, updatedUnityLibraryBuildGradleText.ToString());
+        }
+
+        private static void ModifyGradleProperties(string path)
+        {
+            var rootProjectPath = path.TrimEnd('/').Replace("unityLibrary", "");
+            var gradlePropertiesPath = Path.Combine(rootProjectPath, "gradle.properties");
+            var gradleProperties = File.ReadLines(gradlePropertiesPath);
+            var updatedGradlePropertiesText = new StringBuilder();
+            var useAndroidXAppended = false;
+            foreach (var property in gradleProperties)
+            {
+                if (property.Contains("android.useAndroidX"))
+                {
+                    // Replace property
+                    updatedGradlePropertiesText.Append("android.useAndroidX=true");
+                    updatedGradlePropertiesText.AppendLine();
+                    useAndroidXAppended = true;
+                }
+                else
+                {
+                    // Add the original line
+                    updatedGradlePropertiesText.Append(property);
+                    updatedGradlePropertiesText.AppendLine();
+                }
+            }
+
+            if (!useAndroidXAppended)
+            {
+                // Add the property
+                updatedGradlePropertiesText.Append("android.useAndroidX=true");
+                updatedGradlePropertiesText.AppendLine();
+            }
+
+            File.WriteAllText(gradlePropertiesPath, updatedGradlePropertiesText.ToString());
+        }
+    }
+
     public class ModifyAndroidManifest : IPostGenerateGradleAndroidProject
     {
         private string _manifestFilePath;
