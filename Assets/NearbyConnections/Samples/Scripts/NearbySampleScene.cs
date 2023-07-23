@@ -13,7 +13,6 @@ namespace jp.kshoji.unity.nearby.sample
     {
         private const string ServiceID = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
         private static string LocalEndpointName = Guid.NewGuid().ToString();
-        private HashSet<string> connectedEndpoints = new HashSet<string>();
 
         private void Awake()
         {
@@ -60,18 +59,10 @@ namespace jp.kshoji.unity.nearby.sample
             };
             NearbyConnectionsManager.Instance.OnEndpointConnected += id =>
             {
-                lock (connectedEndpoints)
-                {
-                    connectedEndpoints.Add(id);
-                }
                 receivedMessages.Add($"OnEndpointConnected id: {id}");
             };
             NearbyConnectionsManager.Instance.OnEndpointDisconnected += id =>
             {
-                lock (connectedEndpoints)
-                {
-                    connectedEndpoints.Remove(id);
-                }
                 receivedMessages.Add($"OnEndpointDisconnected id: {id}");
             };
 
@@ -169,33 +160,47 @@ namespace jp.kshoji.unity.nearby.sample
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
                     }
 
-                    GUILayout.Label($"Discovered endpoint:");
-                    // accept / reject endpoint
+                    GUILayout.Label($"Discovered endpoints:");
                     var discoveredEndpoints = NearbyConnectionsManager.Instance.GetDiscoveredEndpoints();
                     foreach (var discoveredEndpoint in discoveredEndpoints)
                     {
                         GUILayout.Label($"endpoint: {discoveredEndpoint}");
-                        if (GUILayout.Button("Accept"))
+
+                        // connect to endpoint
+                        if (GUILayout.Button("Connect"))
                         {
-                            NearbyConnectionsManager.Instance.AcceptConnection(discoveredEndpoint);
-                        }
-                        if (GUILayout.Button("Reject"))
-                        {
-                            NearbyConnectionsManager.Instance.RejectConnection(discoveredEndpoint);
+                            NearbyConnectionsManager.Instance.Connect(LocalEndpointName, discoveredEndpoint);
                         }
                     }
 
-                    GUILayout.Label($"Connected endpoint:");
-                    // disconnect endpoint
-                    lock (connectedEndpoints)
+                    GUILayout.Label($"Pending connections:");
+                    var pendingConnections = NearbyConnectionsManager.Instance.GetPendingConnections();
+                    foreach (var pendingConnection in pendingConnections)
                     {
-                        foreach (var connectedEndpoint in connectedEndpoints)
+                        GUILayout.Label($"endpoint: {pendingConnection}");
+
+                        // accept / reject endpoint
+                        if (GUILayout.Button("Accept"))
                         {
-                            GUILayout.Label($"endpoint: {connectedEndpoint}");
-                            if (GUILayout.Button("Disconnect"))
-                            {
-                                NearbyConnectionsManager.Instance.Disconnect(connectedEndpoint);
-                            }
+                            NearbyConnectionsManager.Instance.AcceptConnection(pendingConnection);
+                        }
+
+                        if (GUILayout.Button("Reject"))
+                        {
+                            NearbyConnectionsManager.Instance.RejectConnection(pendingConnection);
+                        }
+                    }
+
+                    GUILayout.Label($"Connected endpoints:");
+                    var establishedConnections = NearbyConnectionsManager.Instance.GetEstablishedConnections();
+                    foreach (var connectedEndpoint in establishedConnections)
+                    {
+                        GUILayout.Label($"endpoint: {connectedEndpoint}");
+
+                        // disconnect endpoint
+                        if (GUILayout.Button("Disconnect"))
+                        {
+                            NearbyConnectionsManager.Instance.Disconnect(connectedEndpoint);
                         }
                     }
 

@@ -190,9 +190,9 @@ public class ConnectionsManager {
                     // We're no longer connecting
                     isConnecting = false;
 
-                    Endpoint pendingConnction;
+                    Endpoint pendingConnection;
                     synchronized (pendingConnections) {
-                        pendingConnction = pendingConnections.remove(endpointId);
+                        pendingConnection = pendingConnections.remove(endpointId);
                     }
                     if (!result.getStatus().isSuccess()) {
                         if (USE_LOGS) {
@@ -206,14 +206,14 @@ public class ConnectionsManager {
                                     )
                             );
                         }
-                        if (pendingConnction != null) {
-                            onConnectionFailed(pendingConnction);
+                        if (pendingConnection != null) {
+                            onConnectionFailed(pendingConnection);
                         }
                         return;
                     }
 
-                    if (pendingConnction != null) {
-                        connectedToEndpoint(pendingConnction);
+                    if (pendingConnection != null) {
+                        connectedToEndpoint(pendingConnection);
                     }
                 }
 
@@ -255,6 +255,9 @@ public class ConnectionsManager {
      * we've found out if we successfully entered this mode.
      */
     protected void startAdvertising(final String localEndpointName, final String serviceId, final int strategy) {
+        if (isAdvertising) {
+            connectionsClient.stopAdvertising();
+        }
         isAdvertising = true;
 
         AdvertisingOptions.Builder advertisingOptions = new AdvertisingOptions.Builder();
@@ -316,6 +319,9 @@ public class ConnectionsManager {
      * out if we successfully entered this mode.
      */
     protected void startDiscovering(final String serviceId, final int strategy) {
+        if (isDiscovering) {
+            connectionsClient.stopDiscovery();
+        }
         isDiscovering = true;
         synchronized (discoveredEndpoints) {
             discoveredEndpoints.clear();

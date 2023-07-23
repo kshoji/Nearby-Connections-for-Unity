@@ -27,7 +27,9 @@ namespace jp.kshoji.unity.nearby
 
         private Action onInitializeCompleted;
 
-        private HashSet<string> discoveredEndpoints = new HashSet<string>();
+        private readonly HashSet<string> discoveredEndpoints = new HashSet<string>();
+        private readonly HashSet<string> pendingConnections = new HashSet<string>();
+        private readonly HashSet<string> establishedConnections = new HashSet<string>();
 
         /// <summary>
         /// Get an instance<br />
@@ -218,23 +220,48 @@ namespace jp.kshoji.unity.nearby
             {
             }
             void onConnectionInitiated(string endpointId, string endpointName, bool isIncomingConnection)
-                => Instance.asyncOperation.Post(o => Instance.OnConnectionInitiated?.Invoke((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]), new object[] {endpointId, endpointName,
-                    isIncomingConnection});
+                => Instance.asyncOperation.Post(o =>
+                {
+                    lock (Instance.pendingConnections)
+                    {
+                        Instance.pendingConnections.Add(endpointId);
+                    }
+                    Instance.OnConnectionInitiated?.Invoke((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]);
+                }, new object[] {endpointId, endpointName, isIncomingConnection});
 
             void onConnectionFailed(string endpointId)
-                => Instance.asyncOperation.Post(o => Instance.OnConnectionFailed?.Invoke((string)o), endpointId);
+                => Instance.asyncOperation.Post(o =>
+                {
+                    lock (Instance.pendingConnections)
+                    {
+                        Instance.pendingConnections.Remove(endpointId);
+                    }
+                    Instance.OnConnectionFailed?.Invoke((string)o);
+                }, endpointId);
+
             void onEndpointConnected(string endpointId)
                 => Instance.asyncOperation.Post(o =>
                 {
                     var connectedEndpointId = (string)o;
-                    lock (Instance.discoveredEndpoints)
+                    lock (Instance.pendingConnections)
                     {
-                        Instance.discoveredEndpoints.Remove(connectedEndpointId);
+                        Instance.pendingConnections.Remove(endpointId);
+                    }
+                    lock (Instance.establishedConnections)
+                    {
+                        Instance.establishedConnections.Add(endpointId);
                     }
                     Instance.OnEndpointConnected?.Invoke(connectedEndpointId);
                 }, endpointId);
             void onEndpointDisconnected(string endpointId)
-                => Instance.asyncOperation.Post(o => Instance.OnEndpointDisconnected?.Invoke((string)o), endpointId);
+                => Instance.asyncOperation.Post(o =>
+                {
+                    lock (Instance.establishedConnections)
+                    {
+                        Instance.establishedConnections.Remove(endpointId);
+                    }
+                    Instance.OnEndpointDisconnected?.Invoke((string)o);
+                }, endpointId);
         }
 #endif
 
@@ -243,7 +270,14 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnConnectionInitiatedDelegate))]
         private static void IosOnConnectionInitiated(string endpointId, string endpointName, bool isIncomingConnection) =>
-            Instance.asyncOperation.Post(o => Instance.OnConnectionInitiated?.Invoke((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]), new object[] { endpointId, endpointName, isIncomingConnection });
+            Instance.asyncOperation.Post(o =>
+            {
+                lock (Instance.pendingConnections)
+                {
+                    Instance.pendingConnections.Add(endpointId);
+                }
+                Instance.OnConnectionInitiated?.Invoke((string)((object[])o)[0], (string)((object[])o)[1], (bool)((object[])o)[2]);
+            }, new object[] { endpointId, endpointName, isIncomingConnection });
         [DllImport(DllName)]
         private static extern void SetConnectionInitiatedDelegate(OnConnectionInitiatedDelegate callback);
 #endif
@@ -253,7 +287,14 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnConnectionFailedDelegate))]
         private static void IosOnConnectionFailed(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnConnectionFailed?.Invoke((string)o), endpointId);
+            Instance.asyncOperation.Post(o =>
+            {
+                lock (Instance.pendingConnections)
+                {
+                    Instance.pendingConnections.Remove(endpointId);
+                }
+                Instance.OnConnectionFailed?.Invoke((string)o);
+            }, endpointId);
         [DllImport(DllName)]
         private static extern void SetConnectionFailedDelegate(OnConnectionFailedDelegate callback);
 #endif
@@ -266,9 +307,13 @@ namespace jp.kshoji.unity.nearby
             Instance.asyncOperation.Post(o =>
             {
                 var connectedEndpointId = (string)o;
-                lock (Instance.discoveredEndpoints)
+                lock (Instance.pendingConnections)
                 {
-                    Instance.discoveredEndpoints.Remove(connectedEndpointId);
+                    Instance.pendingConnections.Remove(endpointId);
+                }
+                lock (Instance.establishedConnections)
+                {
+                    Instance.establishedConnections.Add(endpointId);
                 }
                 Instance.OnEndpointConnected?.Invoke(connectedEndpointId);
             }, endpointId);
@@ -281,7 +326,14 @@ namespace jp.kshoji.unity.nearby
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointDisconnectedDelegate))]
         private static void IosOnEndpointDisonnected(string endpointId) =>
-            Instance.asyncOperation.Post(o => Instance.OnEndpointDisconnected?.Invoke((string)o), endpointId);
+            Instance.asyncOperation.Post(o =>
+            {
+                lock (Instance.establishedConnections)
+                {
+                    Instance.establishedConnections.Remove(endpointId);
+                }
+                Instance.OnEndpointDisconnected?.Invoke((string)o);
+            }, endpointId);
         [DllImport(DllName)]
         private static extern void SetEndpointDisconnectedDelegate(OnEndpointDisconnectedDelegate callback);
 #endif
@@ -592,6 +644,11 @@ namespace jp.kshoji.unity.nearby
                 AndroidJNI.DetachCurrentThread();
             }
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            lock (discoveredEndpoints)
+            {
+                discoveredEndpoints.Clear();
+            }
+
             IosStartDiscovering(serviceId, GetStrategy(strategy));
 #else
             throw new NotImplementedException("this platform isn't available");
@@ -658,6 +715,29 @@ namespace jp.kshoji.unity.nearby
         }
 
         /// <summary>
+        /// Obtains all pending endpoint IDs 
+        /// </summary>
+        /// <returns>set of endpoint IDs</returns>
+        public HashSet<string> GetPendingConnections()
+        {
+            lock (pendingConnections)
+            {
+                return new HashSet<string>(pendingConnections);
+            }
+        }
+
+        /// <summary>
+        /// Obtains all established endpoint IDs 
+        /// </summary>
+        /// <returns>set of endpoint IDs</returns>
+        public HashSet<string> GetEstablishedConnections()
+        {
+            lock (establishedConnections)
+            {
+                return new HashSet<string>(establishedConnections);
+            }
+        }
+        /// <summary>
         /// Connect to the endpoint
         /// </summary>
         /// <param name="localEndpointName">endpoint name of this device</param>
@@ -670,12 +750,20 @@ namespace jp.kshoji.unity.nearby
                 AndroidJNI.AttachCurrentThread();
             }
             connectionsManager.Call("connectToEndpoint", localEndpointName, endpointId);
+            lock (Instance.discoveredEndpoints)
+            {
+                Instance.discoveredEndpoints.Remove(endpointId);
+            }
             if (Thread.CurrentThread != mainThread)
             {
                 AndroidJNI.DetachCurrentThread();
             }
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosConnectToEndpoint(localEndpointName, endpointId);
+            lock (Instance.discoveredEndpoints)
+            {
+                Instance.discoveredEndpoints.Remove(endpointId);
+            }
 #else
             throw new NotImplementedException("this platform isn't available");
 #endif
