@@ -166,6 +166,7 @@ struct DiscoveredEndpoint: Identifiable {
         }
         discoverer?.delegate = self
         discoverer?.startDiscovery()
+        discoveryEventDelegate?.onDiscoveryStarted()
         isDiscovering = true
     }
     
