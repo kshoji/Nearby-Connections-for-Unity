@@ -512,6 +512,7 @@ namespace jp.kshoji.unity.nearby
             SetEndpointDisconnectedDelegate(IosOnEndpointDisonnected);
             SetReceiveDelegate(IosOnReceive);
             IosInitialize();
+            initializeCompletedAction?.Invoke();
 #else
             initializeCompletedAction?.Invoke();
 #endif

@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Networking;
 
 namespace jp.kshoji.unity.nearby.sample
 {
@@ -39,10 +36,6 @@ namespace jp.kshoji.unity.nearby.sample
             NearbyConnectionsManager.Instance.OnEndpointDiscovered += id =>
             {
                 receivedMessages.Add($"OnEndpointDiscovered id: {id}");
-                if (autoAcceptConnection)
-                {
-                    NearbyConnectionsManager.Instance.Connect(LocalEndpointName, id);
-                }
             };
 
             NearbyConnectionsManager.Instance.OnConnectionInitiated += (id, endpointName, connection) =>
@@ -74,7 +67,7 @@ namespace jp.kshoji.unity.nearby.sample
 
             NearbyConnectionsManager.Instance.Initialize(() =>
             {
-                NearbyConnectionsManager.Instance.StartDiscovering(ServiceID, NearbyConnectionsManager.Strategy.P2P_CLUSTER);
+                receivedMessages.Add($"NearbyConnectionsManager initialized.");
             });
         }
 
@@ -128,34 +121,38 @@ namespace jp.kshoji.unity.nearby.sample
 
                     autoAcceptConnection = GUILayout.Toggle(autoAcceptConnection, "Auto accept incoming connections");
 
-                    if (GUILayout.Button("StartDiscovering"))
+                    if (NearbyConnectionsManager.Instance.IsDiscovering())
                     {
-                        if (NearbyConnectionsManager.Instance.IsDiscovering())
+                        if (GUILayout.Button("StopDiscovering"))
                         {
                             NearbyConnectionsManager.Instance.StopDiscovering();
                         }
-                        NearbyConnectionsManager.Instance.StartDiscovering(ServiceID, NearbyConnectionsManager.Strategy.P2P_CLUSTER);
                     }
-                    if (GUILayout.Button("StopDiscovering"))
+                    else
                     {
-                        NearbyConnectionsManager.Instance.StopDiscovering();
+                        if (GUILayout.Button("StartDiscovering"))
+                        {
+                            NearbyConnectionsManager.Instance.StartDiscovering(ServiceID, NearbyConnectionsManager.Strategy.P2P_CLUSTER);
+                        }
                     }
 
-                    if (GUILayout.Button("StartAdvertising"))
+                    if (NearbyConnectionsManager.Instance.IsAdvertising())
                     {
-                        if (NearbyConnectionsManager.Instance.IsAdvertising())
+                        if (GUILayout.Button("StopAdvertising"))
                         {
                             NearbyConnectionsManager.Instance.StopAdvertising();
                         }
-                        NearbyConnectionsManager.Instance.StartAdvertising(LocalEndpointName, ServiceID, NearbyConnectionsManager.Strategy.P2P_CLUSTER);
                     }
-                    if (GUILayout.Button("StopAdvertising"))
+                    else
                     {
-                        NearbyConnectionsManager.Instance.StopAdvertising();
+                        if (GUILayout.Button("StartAdvertising"))
+                        {
+                            NearbyConnectionsManager.Instance.StartAdvertising(LocalEndpointName, ServiceID, NearbyConnectionsManager.Strategy.P2P_CLUSTER);
+                        }
                     }
 
                     sendText = GUILayout.TextField(sendText);
-                    if (GUILayout.Button("Send"))
+                    if (GUILayout.Button("Send") && !string.IsNullOrEmpty(sendText))
                     {
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
                     }
@@ -212,47 +209,6 @@ namespace jp.kshoji.unity.nearby.sample
         private void OnApplicationQuit()
         {
             NearbyConnectionsManager.Instance.Terminate();
-        }
-
-        /// <summary>
-        /// Get <see cref="Stream"/> from url
-        /// </summary>
-        /// <param name="url"></param>
-        /// <param name="onResult"></param>
-        /// <returns></returns>
-        IEnumerator GetStreamFromUrl(string url, Action<Stream> onResult)
-        {
-            using (var www = UnityWebRequest.Get(url))
-            {
-                yield return www.SendWebRequest();
-                onResult(new MemoryStream(www.downloadHandler.data));
-            }
-        }
-
-        /// <summary>
-        /// Get <see cref="Stream"/> for a Streaming Asset
-        /// </summary>
-        /// <param name="filename">asset file name</param>
-        /// <param name="onResult">Action for getting <see cref="Stream"/></param>
-        /// <returns></returns>
-        IEnumerator GetStreamingAssetFilePath(string filename, Action<Stream> onResult)
-        {
-#if UNITY_ANDROID || UNITY_WEBGL
-            var path = Path.Combine(Application.streamingAssetsPath, filename);
-            if (path.Contains("://"))
-            {
-                var www = UnityWebRequest.Get(path);
-                yield return www.SendWebRequest();
-                onResult(new MemoryStream(www.downloadHandler.data));
-            }
-            else
-            {
-                onResult(new FileStream(path, FileMode.Open, FileAccess.Read));
-            }
-#else
-            onResult(new FileStream(Path.Combine(Application.streamingAssetsPath, filename), FileMode.Open, FileAccess.Read));
-            yield break;
-#endif
         }
     }
 }
