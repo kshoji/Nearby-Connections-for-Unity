@@ -553,7 +553,6 @@ namespace jp.kshoji.unity.nearby
         /// Either {@link #onAdvertisingStarted()} or {@link #onAdvertisingFailed()} will be called once
         /// we've found out if we successfully entered this mode.
         /// </summary>
-        /// <exception cref="NotImplementedException">the platform isn't available</exception>
         public void StartAdvertising(string localEndpointName, string serviceId, Strategy strategy)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -569,14 +568,14 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosStartAdvertising(localEndpointName, serviceId, GetStrategy(strategy));
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
         /// <summary>
         /// Stops advertising.
         /// </summary>
-        /// <exception cref="NotImplementedException">the platform isn't available</exception>
         public void StopAdvertising()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -592,7 +591,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosStopAdvertising();
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -617,7 +617,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             return IosIsAdvertising();
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            return false;
 #endif
         }
 
@@ -651,7 +652,8 @@ namespace jp.kshoji.unity.nearby
 
             IosStartDiscovering(serviceId, GetStrategy(strategy));
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
         
@@ -673,7 +675,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosStopDiscovering();
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -698,7 +701,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             return IosIsDiscovering();
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            return false;
 #endif
         }
 
@@ -765,7 +769,8 @@ namespace jp.kshoji.unity.nearby
                 Instance.discoveredEndpoints.Remove(endpointId);
             }
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -788,7 +793,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosAcceptConnection(endpointId);
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -811,7 +817,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosRejectConnection(endpointId);
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -834,7 +841,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosDisconnect(endpointId);
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -856,7 +864,8 @@ namespace jp.kshoji.unity.nearby
 #elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
             IosDisconnectFromAllEndpoints();
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
@@ -894,7 +903,8 @@ namespace jp.kshoji.unity.nearby
                 IosSendToEndpoint(bytes, bytes.Length, endpointId);
             }
 #else
-            throw new NotImplementedException("this platform isn't available");
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
