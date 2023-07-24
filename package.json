@@ -1,6 +1,6 @@
 {
     "name": "jp.kshoji.unity.nearby",
-    "displayName": "Nearby Connections for Unity",
+    "displayName": "Nearby Connections",
     "description": "Nearby Connections plugin implementation",
     "version": "0.0.1",
     "unity": "2020.3",
