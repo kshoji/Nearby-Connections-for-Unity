@@ -1,6 +1,6 @@
 {
     "name": "jp.kshoji.NearbyUnityPlugin",
-    "rootNamespace": "jp.kshoji.NearbyUnityPlugin",
+    "rootNamespace": "jp.kshoji.unity.nearby",
     "references": [],
     "includePlatforms": [
         "Android",
