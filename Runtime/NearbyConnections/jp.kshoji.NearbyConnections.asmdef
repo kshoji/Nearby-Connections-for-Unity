@@ -1,5 +1,5 @@
 {
-    "name": "jp.kshoji.NearbyUnityPlugin",
+    "name": "jp.kshoji.NearbyConnections",
     "rootNamespace": "jp.kshoji.unity.nearby",
     "references": [],
     "includePlatforms": [
