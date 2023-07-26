@@ -19,17 +19,6 @@ Then specify the URL below:
 ssh://git@github.com/kshoji/Nearby-Connections-for-Unity.git
 ```
 
-### Note about errors under Windows environment:
-On the Windows environment, Unity's package manager may show errors like these.
-```bat
-Filename too long
-```
-This repository contains plugin's source code on [PluginSource~](https://github.com/kshoji/Nearby-Connections-for-Unity/tree/main/PluginSource~) directory, this directory has too long pathname.  
-To fix this issue, execute this command on the terminal.
-```bat
-git config --system core.longpaths true
-```
-
 # The main class of this package:
 The `NearbyConnectionsManager` class is a wrapper class for Nearby API.  
 To look the implementation of the feature, please see the [Sample Project](https://github.com/kshoji/Nearby-Connections-for-Unity/tree/main/Samples~/SampleProject) of this package.
