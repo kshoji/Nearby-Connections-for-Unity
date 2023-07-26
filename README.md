@@ -34,6 +34,9 @@ git config --system core.longpaths true
 The `NearbyConnectionsManager` class is a wrapper class for Nearby API.  
 To look the implementation of the feature, please see the [Sample Project](https://github.com/kshoji/Nearby-Connections-for-Unity/tree/main/Samples~/SampleProject) of this package.
 
+# Native plugin's source
+Native plugin's source is stored at another branch: [plugin-source](https://github.com/kshoji/Nearby-Connections-for-Unity/tree/plugin-source/PluginSource).
+
 # License
 [Apache License 2.0](https://github.com/kshoji/Nearby-Connections-for-Unity/tree/main/LICENSE)
 
