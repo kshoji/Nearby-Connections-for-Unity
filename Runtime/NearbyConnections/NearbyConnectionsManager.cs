@@ -6,6 +6,7 @@ using UnityEditor;
 #endif
 using UnityEngine;
 using System.ComponentModel;
+using System.IO;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
 using System.Runtime.InteropServices;
 #endif
@@ -370,6 +371,19 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetReceiveDelegate(IosOnReceiveDelegate callback);
 #endif
 
+        public delegate void OnReceiveFileDelegate(string endpointId, long id, string fileName);
+        public event OnReceiveFileDelegate OnReceiveFile;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnReceiveFileDelegate(string endpointId, long id, string fileName);
+        [AOT.MonoPInvokeCallback(typeof(IosOnReceiveFileDelegate))]
+        private static void IosOnReceiveFile(string endpointId, long id, string fileName)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnReceiveFile?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, id, fileName });
+        }
+        [DllImport(DllName)]
+        private static extern void SetReceiveFileDelegate(IosOnReceiveFileDelegate callback);
+#endif
+
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [DllImport(DllName)]
         private static extern void IosInitialize();
@@ -415,6 +429,15 @@ namespace jp.kshoji.unity.nearby
 
         [DllImport(DllName)]
         private static extern void IosSendToEndpoint(byte[] bytes, int length, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern long IosSendFile(string path, string fileName);
+
+        [DllImport(DllName)]
+        private static extern long IosSendFileToEndpoint(string path, string fileName, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern long IosCancelPayload(long payloadId, string endpointId);
 #endif
         
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -511,6 +534,7 @@ namespace jp.kshoji.unity.nearby
             SetConnectionFailedDelegate(IosOnConnectionFailed);
             SetEndpointDisconnectedDelegate(IosOnEndpointDisonnected);
             SetReceiveDelegate(IosOnReceive);
+            SetReceiveFileDelegate(IosOnReceiveFile);
             IosInitialize();
             initializeCompletedAction?.Invoke();
 #else
@@ -906,6 +930,52 @@ namespace jp.kshoji.unity.nearby
 #else
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
+#endif
+        }
+
+        /// <summary>
+        /// Send file to the specified endpoint
+        /// </summary>
+        /// <param name="filePath">the file path</param>
+        /// <param name="endpointId">the endpoint ID, send to the all endpoints if null specified</param>
+        /// <returns></returns>
+        public long Send(string filePath, string endpointId = null)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            var path = Path.GetFullPath(filePath);
+            long result;
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            if (endpointId == null)
+            {
+                result = connectionsManager.Call<long>("sendFile", path);
+            }
+            else
+            {
+                result = connectionsManager.Call<long>("sendFile", path, endpointId);
+            }
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+            return result;
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            var path = Path.GetFullPath(filePath);
+            var fileName = Path.GetFileName(filePath);
+            if (endpointId == null)
+            {
+                return IosSendFile($"file://{path}", fileName);
+            }
+            else
+            {
+                return IosSendFileToEndpoint($"file://{path}", fileName, endpointId);
+            }
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
+            return 0;
 #endif
         }
 
