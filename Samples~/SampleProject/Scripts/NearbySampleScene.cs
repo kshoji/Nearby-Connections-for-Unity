@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace jp.kshoji.unity.nearby.sample
 {
@@ -63,6 +66,12 @@ namespace jp.kshoji.unity.nearby.sample
             {
                 Debug.Log($"OnReceive id: {id}, l: {l}, payload: {string.Join(", ", payload)}");
                 receivedMessages.Add($"OnReceive [{id}]({l}): {Encoding.UTF8.GetString(payload)}");
+            };
+
+            NearbyConnectionsManager.Instance.OnReceiveFile += (id, l, fileName) =>
+            {
+                Debug.Log($"OnReceiveFile id: {id}, l: {l}, fileName: {fileName}");
+                receivedMessages.Add($"OnReceiveFile [{id}]({l}): {fileName}");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -157,6 +166,37 @@ namespace jp.kshoji.unity.nearby.sample
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
                     }
 
+                    if (GUILayout.Button("Send File"))
+                    {
+                        IEnumerator GetFileContentsAndSend(string filePath)
+                        {
+                            var request = UnityWebRequest.Get(filePath);
+                            yield return request.SendWebRequest();
+                            if (request.result == UnityWebRequest.Result.Success)
+                            {
+                                var tempFileName = Path.GetTempFileName();
+                                using var fileStream = new FileStream(tempFileName, FileMode.OpenOrCreate);
+                                fileStream.Write(request.downloadHandler.data, 0, request.downloadHandler.data.Length);
+ 
+                                var payloadId = NearbyConnectionsManager.Instance.Send(tempFileName);
+                                receivedMessages.Add($"Send File payloadId: {payloadId}");
+                            }
+                        }
+
+                        // TODO: place a file to Assets/StreamingAssets/testFile.zip
+                        var filePath = Path.Combine(Application.streamingAssetsPath, "testFile.zip");
+                        if (Uri.IsWellFormedUriString(filePath, UriKind.Absolute))
+                        {
+                            // for Android
+                            StartCoroutine(GetFileContentsAndSend(filePath));
+                        }
+                        else
+                        {
+                            var payloadId = NearbyConnectionsManager.Instance.Send(filePath);
+                            receivedMessages.Add($"Send File payloadId: {payloadId}");
+                        }
+                    }
+                    
                     GUILayout.Label($"Discovered endpoints:");
                     var discoveredEndpoints = NearbyConnectionsManager.Instance.GetDiscoveredEndpoints();
                     foreach (var discoveredEndpoint in discoveredEndpoints)
