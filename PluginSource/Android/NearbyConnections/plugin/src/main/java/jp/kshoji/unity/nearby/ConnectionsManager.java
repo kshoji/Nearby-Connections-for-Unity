@@ -3,6 +3,7 @@ package jp.kshoji.unity.nearby;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
@@ -27,6 +28,11 @@ import com.google.android.gms.nearby.connection.Strategy;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -601,7 +607,42 @@ public class ConnectionsManager {
     // data transmission
 
     /**
-     * Sends a {@link Payload} to all currently connected endpoints.
+     * Sends a file {@link Payload} to all currently connected endpoints.
+     *
+     * @param filePath The file you want to send.
+     */
+    protected long sendFile(String filePath) {
+        try {
+            Payload payload = Payload.fromFile(new File(filePath));
+            synchronized (establishedConnections) {
+                send(payload, establishedConnections.keySet());
+            }
+            return payload.getId();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Sends a file {@link Payload} to the specified endpoint.
+     *
+     * @param filePath The file you want to send.
+     * @param endpointId The endpoint ID
+     */
+    protected long sendFile(String filePath, String endpointId) {
+        try {
+            Payload payload = Payload.fromFile(new File(filePath));
+            Set<String> endpoints = new HashSet<>();
+            endpoints.add(endpointId);
+            send(payload, endpoints);
+            return payload.getId();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Sends a bytes {@link Payload} to all currently connected endpoints.
      *
      * @param bytes The data you want to send.
      */
@@ -613,7 +654,7 @@ public class ConnectionsManager {
     }
 
     /**
-     * Sends a {@link Payload} to the specified endpoint.
+     * Sends a bytes {@link Payload} to the specified endpoint.
      *
      * @param bytes The data you want to send.
      * @param endpointId The endpoint ID
@@ -673,7 +714,32 @@ public class ConnectionsManager {
      * @param payload The data.
      */
     protected void onReceive(Endpoint endpoint, Payload payload) {
-        transmissionEventListener.onReceive(endpoint.getId(), payload.getId(), payload.asBytes());
+        switch (payload.getType()) {
+            case Payload.Type.BYTES:
+                transmissionEventListener.onReceive(endpoint.getId(), payload.getId(), payload.asBytes());
+                break;
+            case Payload.Type.FILE:
+                try {
+                    Uri uri = payload.asFile().asUri();
+                    InputStream in = context.getContentResolver().openInputStream(uri);
+                    File tempFile = File.createTempFile("temp", ".bin", context.getCacheDir());
+                    FileOutputStream out = new FileOutputStream(tempFile);
+
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    while ((len = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, len);
+                    }
+                    transmissionEventListener.onReceiveFile(endpoint.getId(), payload.getId(), tempFile.getAbsolutePath());
+                } catch (NullPointerException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                break;
+            case Payload.Type.STREAM:
+                break;
+        }
     }
 
     /** Represents a device we can talk to. */
