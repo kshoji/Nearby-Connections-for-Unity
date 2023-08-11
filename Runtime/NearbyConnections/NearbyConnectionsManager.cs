@@ -349,8 +349,9 @@ namespace jp.kshoji.unity.nearby
             {
             }
             void onReceive(string endpointId, long id, byte[] payload)
-                => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id,
-                    payload});
+                => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
+            void onReceiveFile(string endpointId, long id, string filePath)
+                => Instance.asyncOperation.Post(o => Instance.OnReceiveFile?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
         }
 #endif
 
