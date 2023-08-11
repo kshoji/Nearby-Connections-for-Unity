@@ -147,6 +147,18 @@ OnReceiveDelegate receiveCallback;
     }
 }
 
+typedef void ( __cdecl *OnReceiveFileDelegate )( const char*, long, const char* );
+OnReceiveFileDelegate receiveFileCallback;
+- (void)onReceiveWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId fileName:(NSString * _Nonnull)fileName {
+    if (receiveFileCallback) {
+        const char* bytes = [fileName cStringUsingEncoding:kCFStringEncodingUTF8];
+#ifdef DEBUG
+        NSLog(@"onReceiveWithEndpointId called(file), payload filename: %s", bytes);
+#endif
+        receiveFileCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytes);
+    }
+}
+
 @end
 
 #ifdef __cplusplus
@@ -219,6 +231,18 @@ extern "C" {
         [[NearbyUnityPlugin shared] sendWithEndpointID:[NSString stringWithUTF8String: endpointId] payload:[NSData dataWithBytes:data length:length]];
     }
 
+    long IosSendFile(const char* url, const char* fileName) {
+        return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName]];
+    }
+
+    long IosSendFileToEndpoint(const char* url, const char* fileName, const char *endpointId) {
+        return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName] endpointID:[NSString stringWithUTF8String: endpointId]];
+    }
+
+    void IosCancelPayload(long payloadId, const char *endpointId) {
+        [NearbyUnityPlugin.shared cancelWithEndpointID:[NSString stringWithUTF8String: endpointId] payloadID:payloadId];
+    }
+
     // delegate methods
     void SetAdvertisingFailedDelegate(OnAdvertisingFailedDelegate callback) {
         advertisingFailedCallback = callback;
@@ -262,6 +286,10 @@ extern "C" {
 
     void SetReceiveDelegate(OnReceiveDelegate callback) {
         receiveCallback = callback;
+    }
+
+    void SetReceiveFileDelegate(OnReceiveFileDelegate callback) {
+        receiveFileCallback = callback;
     }
 
 #ifdef __cplusplus

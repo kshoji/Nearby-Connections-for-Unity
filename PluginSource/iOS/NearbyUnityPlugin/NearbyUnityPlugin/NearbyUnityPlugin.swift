@@ -28,6 +28,7 @@ import NearbyConnections
 
 @objc protocol TransmissionEventDelegate : AnyObject {
     func onReceive(endpointId: String, id: Int64, payload: [UInt8]);
+    func onReceive(endpointId: String, id: Int64, fileName: String);
 }
 
 struct Payload: Identifiable {
@@ -36,6 +37,7 @@ struct Payload: Identifiable {
     var status: Status
     let isIncoming: Bool
     let cancellationToken: CancellationToken?
+    let localURL: URL?
 
     enum PayloadType {
         case bytes, stream, file
@@ -246,6 +248,75 @@ struct DiscoveredEndpoint: Identifiable {
         endpoints = []
     }
 
+    @objc func send(url: URL, fileName: String) -> Int64 {
+#if DEBUG
+        print("send payload: \(fileName)")
+#endif
+        let payloadID = PayloadID.unique()
+        let endpointIDs = connections.map{ $0.endpointID }
+
+        if (connections.count < 1) {
+            // no endpoints connected
+            return 0
+        }
+
+        let token = connectionManager?.sendResource(at: url, withName: fileName, to: endpointIDs, id: payloadID)
+        let payload = Payload(
+            id: payloadID,
+            type: .file,
+            status: .inProgress(Progress()),
+            isIncoming: false,
+            cancellationToken: token,
+            localURL: nil
+        )
+
+#if DEBUG
+        print("send payload: \(payload), payloadId: \(payloadID)")
+#endif
+
+        for endpoint in connections {
+            guard let index = connections.firstIndex(where: { $0.endpointID == endpoint.endpointID }) else {
+                return 0
+            }
+            connections[index].payloads.insert(payload, at: 0)
+        }
+
+        return payload.id
+    }
+
+    @objc func send(url: URL, fileName: String, endpointID: String) -> Int64 {
+        guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
+            return 0
+        }
+
+        let payloadID = PayloadID.unique()
+        let endpointIDs = [endpointID]
+
+        let token = connectionManager?.sendResource(at: url, withName: fileName, to: endpointIDs, id: payloadID)
+        let payload = Payload(
+            id: payloadID,
+            type: .file,
+            status: .inProgress(Progress()),
+            isIncoming: false,
+            cancellationToken: token,
+            localURL: nil
+        )
+
+        connections[index].payloads.insert(payload, at: 0)
+
+        return payload.id
+    }
+
+    @objc func cancel(endpointID: EndpointID, payloadID: PayloadID) {
+        guard let connectionIndex = connections.firstIndex(where: { $0.endpointID == endpointID }),
+              let payloadIndex = connections[connectionIndex].payloads.firstIndex(where: { $0.id == payloadID }) else {
+            return
+        }
+        
+        let payload = connections[connectionIndex].payloads[payloadIndex]
+        payload.cancellationToken?.cancel()
+    }
+
     @objc func send(payload: Data) {
 #if DEBUG
         print("send payload: \(payload)")
@@ -272,7 +343,8 @@ struct DiscoveredEndpoint: Identifiable {
             type: .bytes,
             status: .inProgress(Progress()),
             isIncoming: false,
-            cancellationToken: token
+            cancellationToken: token,
+            localURL: nil
         )
         
         for endpoint in connections {
@@ -299,7 +371,8 @@ struct DiscoveredEndpoint: Identifiable {
             type: .bytes,
             status: .inProgress(Progress()),
             isIncoming: false,
-            cancellationToken: token
+            cancellationToken: token,
+            localURL: nil
         )
 
         connections[index].payloads.insert(payload, at: 0)
@@ -387,7 +460,8 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             type: .bytes,
             status: .success,
             isIncoming: true,
-            cancellationToken: nil
+            cancellationToken: nil,
+            localURL: nil
         )
         guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
@@ -407,7 +481,8 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             type: .stream,
             status: .success,
             isIncoming: true,
-            cancellationToken: token
+            cancellationToken: token,
+            localURL: nil
         )
         guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
@@ -424,7 +499,8 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             type: .file,
             status: .inProgress(Progress()),
             isIncoming: true,
-            cancellationToken: token
+            cancellationToken: token,
+            localURL: localURL
         )
         guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
@@ -434,15 +510,24 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
 
     public func connectionManager(_ connectionManager: ConnectionManager, didReceiveTransferUpdate update: TransferUpdate, from endpointID: EndpointID, forPayload payloadID: PayloadID) {
 #if DEBUG
-        print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID)")
+        print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), update: \(update)")
 #endif
         guard let connectionIndex = connections.firstIndex(where: { $0.endpointID == endpointID }),
               let payloadIndex = connections[connectionIndex].payloads.firstIndex(where: { $0.id == payloadID }) else {
             return
         }
+        var payload = connections[connectionIndex].payloads[payloadIndex]
         switch update {
         case .success:
-            connections[connectionIndex].payloads[payloadIndex].status = .success
+            payload.status = .success
+            if (payload.type == .file) {
+                if (payload.isIncoming) {
+#if DEBUG
+                    print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), localURL: \(payload.localURL!.absoluteString)")
+#endif
+                    transmissionEventDelegate?.onReceive(endpointId: endpointID, id: payloadID, fileName: payload.localURL!.absoluteString)
+                }
+            }
         case .canceled:
             connections[connectionIndex].payloads[payloadIndex].status = .canceled
         case .failure:
