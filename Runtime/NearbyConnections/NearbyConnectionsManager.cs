@@ -282,7 +282,7 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetConnectionInitiatedDelegate(OnConnectionInitiatedDelegate callback);
 #endif
 
-        public delegate void OnConnectionFailedDelegate(string  endpointId);
+        public delegate void OnConnectionFailedDelegate(string endpointId);
         public event OnConnectionFailedDelegate OnConnectionFailed;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnConnectionFailedDelegate))]
@@ -299,7 +299,7 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetConnectionFailedDelegate(OnConnectionFailedDelegate callback);
 #endif
 
-        public delegate void OnEndpointConnectedDelegate(string  endpointId);
+        public delegate void OnEndpointConnectedDelegate(string endpointId);
         public event OnEndpointConnectedDelegate OnEndpointConnected;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointConnectedDelegate))]
@@ -321,11 +321,11 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetEndpointConnectedDelegate(OnEndpointConnectedDelegate callback);
 #endif
 
-        public delegate void OnEndpointDisconnectedDelegate(string  endpointId);
+        public delegate void OnEndpointDisconnectedDelegate(string endpointId);
         public event OnEndpointDisconnectedDelegate OnEndpointDisconnected;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [AOT.MonoPInvokeCallback(typeof(OnEndpointDisconnectedDelegate))]
-        private static void IosOnEndpointDisonnected(string endpointId) =>
+        private static void IosOnEndpointDisconnected(string endpointId) =>
             Instance.asyncOperation.Post(o =>
             {
                 lock (Instance.establishedConnections)
@@ -360,8 +360,7 @@ namespace jp.kshoji.unity.nearby
         [AOT.MonoPInvokeCallback(typeof(IosOnReceiveDelegate))]
         private static void IosOnReceive(string endpointId, long id, int payloadLength, IntPtr payload)
         {
-            // InvalidCastException: Unable to cast object of type 'IntPtr' to type 'Byte[]'.
-            byte[] mangedData = new byte[payloadLength];
+            var mangedData = new byte[payloadLength];
             Marshal.Copy(payload, mangedData, 0, payloadLength);
             Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, id, mangedData });
             Marshal.FreeHGlobal(payload);
@@ -509,7 +508,7 @@ namespace jp.kshoji.unity.nearby
             SetConnectionInitiatedDelegate(IosOnConnectionInitiated);
             SetEndpointConnectedDelegate(IosOnEndpointConnected);
             SetConnectionFailedDelegate(IosOnConnectionFailed);
-            SetEndpointDisconnectedDelegate(IosOnEndpointDisonnected);
+            SetEndpointDisconnectedDelegate(IosOnEndpointDisconnected);
             SetReceiveDelegate(IosOnReceive);
             IosInitialize();
             initializeCompletedAction?.Invoke();

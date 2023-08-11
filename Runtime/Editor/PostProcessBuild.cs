@@ -67,7 +67,7 @@ namespace jp.kshoji.unity.nearby.Editor
             {
                 sb.Append(hash[i].ToString("X2"));
             }
-            return $"_${sb}._tcp";
+            return $"_{sb}._tcp";
         }
     }
 #endif
