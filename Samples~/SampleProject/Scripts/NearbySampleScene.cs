@@ -68,10 +68,16 @@ namespace jp.kshoji.unity.nearby.sample
                 receivedMessages.Add($"OnReceive [{id}]({l}): {Encoding.UTF8.GetString(payload)}");
             };
 
-            NearbyConnectionsManager.Instance.OnReceiveFile += (id, l, fileName) =>
+            NearbyConnectionsManager.Instance.OnFileTransferComplete += (id, l, fileName) =>
             {
-                Debug.Log($"OnReceiveFile id: {id}, l: {l}, fileName: {fileName}");
+                Debug.Log($"OnFileTransferComplete id: {id}, l: {l}, fileName: {fileName}");
                 receivedMessages.Add($"OnReceiveFile [{id}]({l}): {fileName}");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferUpdate += (id, l, bytesTransferred, totalSize) =>
+            {
+                // too much calling on transferring large file, so output logs only
+                Debug.Log($"OnFileTransferUpdate id: {id}, l: {l}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -180,6 +186,10 @@ namespace jp.kshoji.unity.nearby.sample
  
                                 var payloadId = NearbyConnectionsManager.Instance.Send(tempFileName);
                                 receivedMessages.Add($"Send File payloadId: {payloadId}");
+                            }
+                            else
+                            {
+                                Debug.LogError($"File {filePath} not found.");
                             }
                         }
 

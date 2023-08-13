@@ -350,10 +350,10 @@ namespace jp.kshoji.unity.nearby
             }
             void onReceive(string endpointId, long id, byte[] payload)
                 => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
-            void onReceiveFile(string endpointId, long id, string filePath)
-                => Instance.asyncOperation.Post(o => Instance.OnReceiveFile?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
-            void onTransferUpdate(string endpointId, long id, long bytesTransferred,long totalSize)
-				=> Instance.asyncOperation.Post(o => Instance.OnTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] {endpointId, id, bytesTransferred, totalSize});
+            void onFileTransferComplete(string endpointId, long id, string filePath)
+                => Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
+            void onFileTransferUpdate(string endpointId, long id, long bytesTransferred,long totalSize)
+				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] {endpointId, id, bytesTransferred, totalSize});
         }
 #endif
 
@@ -374,30 +374,30 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetReceiveDelegate(IosOnReceiveDelegate callback);
 #endif
 
-        public delegate void OnReceiveFileDelegate(string endpointId, long id, string fileName);
-        public event OnReceiveFileDelegate OnReceiveFile;
+        public delegate void OnFileTransferCompleteDelegate(string endpointId, long id, string fileName);
+        public event OnFileTransferCompleteDelegate OnFileTransferComplete;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnReceiveFileDelegate(string endpointId, long id, string fileName);
-        [AOT.MonoPInvokeCallback(typeof(IosOnReceiveFileDelegate))]
-        private static void IosOnReceiveFile(string endpointId, long id, string fileName)
+        private delegate void IosOnFileTransferCompleteDelegate(string endpointId, long id, string fileName);
+        [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferCompleteDelegate))]
+        private static void IosOnFileTransferComplete(string endpointId, long id, string fileName)
         {
-            Instance.asyncOperation.Post(o => Instance.OnReceiveFile?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, id, fileName });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, id, fileName });
         }
         [DllImport(DllName)]
-        private static extern void SetReceiveFileDelegate(IosOnReceiveFileDelegate callback);
+        private static extern void SetReceiveFileDelegate(IosOnFileTransferCompleteDelegate callback);
 #endif
 
-        public delegate void OnTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
-        public event OnTransferUpdateDelegate OnTransferUpdate;
+        public delegate void OnFileTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        public event OnFileTransferUpdateDelegate OnFileTransferUpdate;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
-        [AOT.MonoPInvokeCallback(typeof(IosOnTransferUpdateDelegate))]
-        private static void IosOnTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
+        private delegate void IosOnFileTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferUpdateDelegate))]
+        private static void IosOnFileTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
         {
-            Instance.asyncOperation.Post(o => Instance.OnTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2]), (long)((object[])o)[3]), new object[] { endpointId, id, bytesTransferred, totalSize });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] { endpointId, id, bytesTransferred, totalSize });
         }
         [DllImport(DllName)]
-        private static extern void SetTransferUpdateDelegate(OnTransferUpdateDelegate callback);
+        private static extern void SetTransferUpdateDelegate(OnFileTransferUpdateDelegate callback);
 #endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
@@ -550,7 +550,8 @@ namespace jp.kshoji.unity.nearby
             SetConnectionFailedDelegate(IosOnConnectionFailed);
             SetEndpointDisconnectedDelegate(IosOnEndpointDisonnected);
             SetReceiveDelegate(IosOnReceive);
-            SetReceiveFileDelegate(IosOnReceiveFile);
+            SetFileTransferCompleteDelegate(IosOnFileTransferComplete);
+            SetFileTransferUpdateDelegate(IosOnFileTransferUpdate);
             IosInitialize();
             initializeCompletedAction?.Invoke();
 #else
