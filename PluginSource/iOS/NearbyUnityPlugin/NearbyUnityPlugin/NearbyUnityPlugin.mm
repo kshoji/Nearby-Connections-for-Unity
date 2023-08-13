@@ -147,15 +147,20 @@ OnReceiveDelegate receiveCallback;
     }
 }
 
-typedef void ( __cdecl *OnReceiveFileDelegate )( const char*, long, const char* );
-OnReceiveFileDelegate receiveFileCallback;
-- (void)onReceiveWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId fileName:(NSString * _Nonnull)fileName {
-    if (receiveFileCallback) {
-        const char* bytes = [fileName cStringUsingEncoding:kCFStringEncodingUTF8];
-#ifdef DEBUG
-        NSLog(@"onReceiveWithEndpointId called(file), payload filename: %s", bytes);
-#endif
-        receiveFileCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytes);
+typedef void ( __cdecl *OnFileTransferCompleteDelegate )( const char*, long, const char* );
+OnFileTransferCompleteDelegate fileTransferCompleteCallback;
+- (void)onFileTransferCompleteWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId fileName:(NSString *)fileName {
+    if (fileTransferCompleteCallback) {
+        const char* bytes = fileName != nil ? [fileName cStringUsingEncoding:kCFStringEncodingUTF8] : NULL;
+        fileTransferCompleteCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytes);
+    }
+}
+
+typedef void ( __cdecl *OnFileTransferUpdateDelegate )( const char*, long, long, long );
+OnFileTransferUpdateDelegate fileTransferUpdateCallback;
+- (void)onFileTransferUpdateWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId bytesTransferred:(int64_t)bytesTransferred totalSize:(int64_t)totalSize {
+    if (fileTransferUpdateCallback) {
+        fileTransferUpdateCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytesTransferred, totalSize);
     }
 }
 
@@ -288,8 +293,12 @@ extern "C" {
         receiveCallback = callback;
     }
 
-    void SetReceiveFileDelegate(OnReceiveFileDelegate callback) {
-        receiveFileCallback = callback;
+    void SetFileTransferCompleteDelegate(OnFileTransferCompleteDelegate callback) {
+        fileTransferCompleteCallback = callback;
+    }
+
+    void SetFileTransferUpdateDelegate(OnFileTransferUpdateDelegate callback) {
+        fileTransferUpdateCallback = callback;
     }
 
 #ifdef __cplusplus

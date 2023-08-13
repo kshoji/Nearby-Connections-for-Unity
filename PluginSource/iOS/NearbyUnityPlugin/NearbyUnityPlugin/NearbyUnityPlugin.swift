@@ -28,7 +28,8 @@ import NearbyConnections
 
 @objc protocol TransmissionEventDelegate : AnyObject {
     func onReceive(endpointId: String, id: Int64, payload: [UInt8]);
-    func onReceive(endpointId: String, id: Int64, fileName: String);
+    func onFileTransferComplete(endpointId: String, id: Int64, fileName: String?);
+    func onFileTransferUpdate(endpointId: String, id: Int64, bytesTransferred: Int64, totalSize: Int64);
 }
 
 struct Payload: Identifiable {
@@ -525,7 +526,9 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
 #if DEBUG
                     print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), localURL: \(payload.localURL!.absoluteString)")
 #endif
-                    transmissionEventDelegate?.onReceive(endpointId: endpointID, id: payloadID, fileName: payload.localURL!.absoluteString)
+                    transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, fileName: payload.localURL!.absoluteString)
+                } else {
+                    transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, fileName: nil)
                 }
             }
         case .canceled:
@@ -534,6 +537,7 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             connections[connectionIndex].payloads[payloadIndex].status = .failure
         case let .progress(progress):
             connections[connectionIndex].payloads[payloadIndex].status = .inProgress(progress)
+            transmissionEventDelegate?.onFileTransferUpdate(endpointId: endpointID, id: payloadID, bytesTransferred: progress.completedUnitCount, totalSize: progress.totalUnitCount)
         }
     }
 
