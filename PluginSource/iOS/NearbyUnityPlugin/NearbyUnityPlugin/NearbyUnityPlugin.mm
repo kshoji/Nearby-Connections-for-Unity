@@ -174,66 +174,66 @@ extern "C" {
             instance = [[NearbyConnectionsPlugin alloc] init];
         }
 
-        [NearbyUnityPlugin shared].advertisingEventDelegate = instance;
-        [NearbyUnityPlugin shared].connectionEventDelegate = instance;
-        [NearbyUnityPlugin shared].discoveryEventDelegate = instance;
-        [NearbyUnityPlugin shared].transmissionEventDelegate = instance;
+        NearbyUnityPlugin.shared.advertisingEventDelegate = instance;
+        NearbyUnityPlugin.shared.connectionEventDelegate = instance;
+        NearbyUnityPlugin.shared.discoveryEventDelegate = instance;
+        NearbyUnityPlugin.shared.transmissionEventDelegate = instance;
     }
 
     void IosStartAdvertising(const char *localEndpointName, const char *serviceId, int strategy) {
-        [[NearbyUnityPlugin shared] startAdvertisingWithLocalEndpointName:[NSString stringWithUTF8String: localEndpointName] serviceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
+        [NearbyUnityPlugin.shared startAdvertisingWithLocalEndpointName:[NSString stringWithUTF8String: localEndpointName] serviceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
     }
     
     void IosStopAdvertising() {
-        [[NearbyUnityPlugin shared] stopAdvertising];
+        [NearbyUnityPlugin.shared stopAdvertising];
     }
     
     bool IosIsAdvertising() {
-        return [[NearbyUnityPlugin shared] isAdvertising];
+        return [NearbyUnityPlugin.shared isAdvertising];
     }
 
     void IosStartDiscovering(const char *serviceId, int strategy) {
-        [[NearbyUnityPlugin shared] startDiscoveringWithServiceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
+        [NearbyUnityPlugin.shared startDiscoveringWithServiceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
     }
 
     void IosStopDiscovering() {
-        [[NearbyUnityPlugin shared] stopDiscovering];
+        [NearbyUnityPlugin.shared stopDiscovering];
     }
     
     bool IosIsDiscovering() {
-        return [[NearbyUnityPlugin shared] isDiscovering];
+        return [NearbyUnityPlugin.shared isDiscovering];
     }
 
     void IosConnectToEndpoint(const char *localEndpointName, const char *endpointId) {
-        [[NearbyUnityPlugin shared] requestConnectionTo:[NSString stringWithUTF8String: endpointId] localEndpointName:[NSString stringWithUTF8String: localEndpointName]];
+        [NearbyUnityPlugin.shared requestConnectionTo:[NSString stringWithUTF8String: endpointId] localEndpointName:[NSString stringWithUTF8String: localEndpointName]];
     }
 
     void IosAcceptConnection(const char *endpointId) {
-        [[NearbyUnityPlugin shared] acceptConnectionTo:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared acceptConnectionTo:[NSString stringWithUTF8String: endpointId]];
     }
 
     void IosRejectConnection(const char *endpointId) {
-        [[NearbyUnityPlugin shared] rejectConnectionTo:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared rejectConnectionTo:[NSString stringWithUTF8String: endpointId]];
     }
 
     void IosDisconnect(const char *endpointId) {
-        [[NearbyUnityPlugin shared] disconnectFrom:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared disconnectFrom:[NSString stringWithUTF8String: endpointId]];
     }
     
     void IosDisconnectFromAllEndpoints() {
-        [[NearbyUnityPlugin shared] disconnectFromAllEndpoints];
+        [NearbyUnityPlugin.shared disconnectFromAllEndpoints];
     }
 
     void IosStopAllEndpoints() {
-        [[NearbyUnityPlugin shared] stopAllEndpoints];
+        [NearbyUnityPlugin.shared stopAllEndpoints];
     }
     
     void IosSend(const unsigned char* data, int length) {
-        [[NearbyUnityPlugin shared] sendWithPayload:[NSData dataWithBytes:data length:length]];
+        [NearbyUnityPlugin.shared sendWithPayload:[NSData dataWithBytes:data length:length]];
     }
 
     void IosSendToEndpoint(const unsigned char* data, int length, const char *endpointId) {
-        [[NearbyUnityPlugin shared] sendWithEndpointID:[NSString stringWithUTF8String: endpointId] payload:[NSData dataWithBytes:data length:length]];
+        [NearbyUnityPlugin.shared sendWithEndpointID:[NSString stringWithUTF8String: endpointId] payload:[NSData dataWithBytes:data length:length]];
     }
 
     long IosSendFile(const char* url, const char* fileName) {
