@@ -133,6 +133,18 @@ public class ConnectionsManager {
     private ConnectionEventListener connectionEventListener;
     private TransmissionEventListener transmissionEventListener;
 
+    private final Map<Long, FileTransfer> fileTransferDictionary = new HashMap<>();
+    private static final class FileTransfer {
+        private final InputStream inputStream;
+        private final FileOutputStream fileOutputStream;
+        private final String path;
+        FileTransfer(InputStream inputStream, FileOutputStream fileOutputStream, String path) {
+            this.inputStream = inputStream;
+            this.fileOutputStream = fileOutputStream;
+            this.path = path;
+        }
+    }
+
     public void initialize(Activity context,
                            AdvertisingEventListener advertisingEventListener,
                            DiscoveryEventListener discoveryEventListener,
@@ -700,9 +712,44 @@ public class ConnectionsManager {
                 @Override
                 public void onPayloadTransferUpdate(@NonNull String endpointId, @NonNull PayloadTransferUpdate update) {
                     if (USE_LOGS) {
-                        Log.d(TAG,
-                                String.format(
-                                        "onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                        Log.d(TAG, String.format("onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                    }
+
+                    // Notify transfer update
+                    FileTransfer fileTransfer = fileTransferDictionary.get(update.getPayloadId());
+                    if (fileTransfer != null) {
+                        // Receiving
+                        try {
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = fileTransfer.inputStream.read(buffer)) != -1) {
+                                fileTransfer.fileOutputStream.write(buffer, 0, len);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        transmissionEventListener.onTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+
+                        if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            // Notify transfer finished
+                            transmissionEventListener.onReceiveFile(endpointId, update.getPayloadId(), fileTransfer.path);
+                        }
+                    } else {
+                        // Sending
+                        if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS || update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
+                            transmissionEventListener.onTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        }
                     }
                 }
             };
@@ -730,7 +777,7 @@ public class ConnectionsManager {
                     while ((len = in.read(buffer)) != -1) {
                         out.write(buffer, 0, len);
                     }
-                    transmissionEventListener.onReceiveFile(endpoint.getId(), payload.getId(), tempFile.getAbsolutePath());
+                    fileTransferDictionary.put(payload.getId(), new FileTransfer(in, out, tempFile.getAbsolutePath()));
                 } catch (NullPointerException e) {
                     throw new RuntimeException(e);
                 } catch (IOException e) {
