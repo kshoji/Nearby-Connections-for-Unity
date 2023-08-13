@@ -728,9 +728,9 @@ public class ConnectionsManager {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                        transmissionEventListener.onTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
-
-                        if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
+                        if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
+                            transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
                             // Close streams
                             try {
                                 fileTransfer.inputStream.close();
@@ -743,12 +743,15 @@ public class ConnectionsManager {
                             fileTransferDictionary.remove(update.getPayloadId());
 
                             // Notify transfer finished
-                            transmissionEventListener.onReceiveFile(endpointId, update.getPayloadId(), fileTransfer.path);
+                            transmissionEventListener.onFileTransferComplete(endpointId, update.getPayloadId(), fileTransfer.path);
                         }
                     } else {
                         // Sending
-                        if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS || update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
-                            transmissionEventListener.onTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
+                            transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
+                            // Notify transfer finished
+                            transmissionEventListener.onFileTransferComplete(endpointId, update.getPayloadId(), null);
                         }
                     }
                 }
