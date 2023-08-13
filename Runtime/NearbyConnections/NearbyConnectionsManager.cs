@@ -352,6 +352,8 @@ namespace jp.kshoji.unity.nearby
                 => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
             void onReceiveFile(string endpointId, long id, string filePath)
                 => Instance.asyncOperation.Post(o => Instance.OnReceiveFile?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
+            void onTransferUpdate(string endpointId, long id, long bytesTransferred,long totalSize)
+				=> Instance.asyncOperation.Post(o => Instance.OnTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] {endpointId, id, bytesTransferred, totalSize});
         }
 #endif
 
@@ -383,6 +385,19 @@ namespace jp.kshoji.unity.nearby
         }
         [DllImport(DllName)]
         private static extern void SetReceiveFileDelegate(IosOnReceiveFileDelegate callback);
+#endif
+
+        public delegate void OnTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        public event OnTransferUpdateDelegate OnTransferUpdate;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        [AOT.MonoPInvokeCallback(typeof(IosOnTransferUpdateDelegate))]
+        private static void IosOnTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2]), (long)((object[])o)[3]), new object[] { endpointId, id, bytesTransferred, totalSize });
+        }
+        [DllImport(DllName)]
+        private static extern void SetTransferUpdateDelegate(OnTransferUpdateDelegate callback);
 #endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
