@@ -164,6 +164,22 @@ OnFileTransferUpdateDelegate fileTransferUpdateCallback;
     }
 }
 
+typedef void ( __cdecl *OnFileTransferFailedDelegate )( const char*, long );
+OnFileTransferFailedDelegate fileTransferFailedCallback;
+- (void)onFileTransferFailedWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (fileTransferFailedCallback) {
+        fileTransferFailedCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
+typedef void ( __cdecl *OnFileTransferCancelledDelegate )( const char*, long );
+OnFileTransferCancelledDelegate fileTransferCancelledCallback;
+- (void)onFileTransferCancelledWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (fileTransferCancelledCallback) {
+        fileTransferCancelledCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
 @end
 
 #ifdef __cplusplus
@@ -244,8 +260,12 @@ extern "C" {
         return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName] endpointID:[NSString stringWithUTF8String: endpointId]];
     }
 
-    void IosCancelPayload(long payloadId, const char *endpointId) {
+    void IosCancelPayloadToEndpoint(long payloadId, const char *endpointId) {
         [NearbyUnityPlugin.shared cancelWithEndpointID:[NSString stringWithUTF8String: endpointId] payloadID:payloadId];
+    }
+
+    void IosCancelPayload(long payloadId) {
+        [NearbyUnityPlugin.shared cancelWithPayloadID:payloadId];
     }
 
     // delegate methods
@@ -299,6 +319,14 @@ extern "C" {
 
     void SetFileTransferUpdateDelegate(OnFileTransferUpdateDelegate callback) {
         fileTransferUpdateCallback = callback;
+    }
+
+    void SetFileTransferFailedDelegate(OnFileTransferFailedDelegate callback) {
+        fileTransferFailedCallback = callback;
+    }
+
+    void SetFileTransferCancelledDelegate(OnFileTransferCancelledDelegate callback) {
+        fileTransferCancelledCallback = callback;
     }
 
 #ifdef __cplusplus
