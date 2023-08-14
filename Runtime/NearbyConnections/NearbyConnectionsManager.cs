@@ -361,70 +361,70 @@ namespace jp.kshoji.unity.nearby
         }
 #endif
 
-        public delegate void OnReceiveDelegate(string endpointId, long id, byte[] payload);
+        public delegate void OnReceiveDelegate(string endpointId, long payloadId, byte[] payload);
         public event OnReceiveDelegate OnReceive;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnReceiveDelegate(string endpointId, long id, int payloadLength, IntPtr payload);
+        private delegate void IosOnReceiveDelegate(string endpointId, long payloadId, int payloadLength, IntPtr payload);
         [AOT.MonoPInvokeCallback(typeof(IosOnReceiveDelegate))]
-        private static void IosOnReceive(string endpointId, long id, int payloadLength, IntPtr payload)
+        private static void IosOnReceive(string endpointId, long payloadId, int payloadLength, IntPtr payload)
         {
             // InvalidCastException: Unable to cast object of type 'IntPtr' to type 'Byte[]'.
             byte[] mangedData = new byte[payloadLength];
             Marshal.Copy(payload, mangedData, 0, payloadLength);
-            Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, id, mangedData });
+            Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, payloadId, mangedData });
             Marshal.FreeHGlobal(payload);
         }
         [DllImport(DllName)]
         private static extern void SetReceiveDelegate(IosOnReceiveDelegate callback);
 #endif
 
-        public delegate void OnFileTransferCompleteDelegate(string endpointId, long id, string fileName);
+        public delegate void OnFileTransferCompleteDelegate(string endpointId, long payloadId, string fileName);
         public event OnFileTransferCompleteDelegate OnFileTransferComplete;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnFileTransferCompleteDelegate(string endpointId, long id, string fileName);
+        private delegate void IosOnFileTransferCompleteDelegate(string endpointId, long payloadId, string fileName);
         [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferCompleteDelegate))]
-        private static void IosOnFileTransferComplete(string endpointId, long id, string fileName)
+        private static void IosOnFileTransferComplete(string endpointId, long payloadId, string fileName)
         {
-            Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, id, fileName });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, payloadId, fileName });
         }
         [DllImport(DllName)]
         private static extern void SetFileTransferCompleteDelegate(IosOnFileTransferCompleteDelegate callback);
 #endif
 
-        public delegate void OnFileTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        public delegate void OnFileTransferUpdateDelegate(string endpointId, long payloadId, long bytesTransferred, long totalSize);
         public event OnFileTransferUpdateDelegate OnFileTransferUpdate;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnFileTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
+        private delegate void IosOnFileTransferUpdateDelegate(string endpointId, long payloadId, long bytesTransferred, long totalSize);
         [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferUpdateDelegate))]
-        private static void IosOnFileTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
+        private static void IosOnFileTransferUpdate(string endpointId, long payloadId, long bytesTransferred, long totalSize)
         {
-            Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] { endpointId, id, bytesTransferred, totalSize });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] { endpointId, payloadId, bytesTransferred, totalSize });
         }
         [DllImport(DllName)]
         private static extern void SetFileTransferUpdateDelegate(OnFileTransferUpdateDelegate callback);
 #endif
 
-        public delegate void OnFileTransferFailedDelegate(string endpointId, long id);
+        public delegate void OnFileTransferFailedDelegate(string endpointId, long payloadId);
         public event OnFileTransferFailedDelegate OnFileTransferFailed;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnFileTransferFailedDelegate(string endpointId, long id, string fileName);
+        private delegate void IosOnFileTransferFailedDelegate(string endpointId, long payloadId);
         [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferFailedDelegate))]
-        private static void IosOnFileTransferFailed(string endpointId, long id)
+        private static void IosOnFileTransferFailed(string endpointId, long payloadId)
         {
-            Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
         }
         [DllImport(DllName)]
         private static extern void SetFileTransferFailedDelegate(IosOnFileTransferFailedDelegate callback);
 #endif
 
-        public delegate void OnFileTransferCancelledDelegate(string endpointId, long id);
+        public delegate void OnFileTransferCancelledDelegate(string endpointId, long payloadId);
         public event OnFileTransferCancelledDelegate OnFileTransferCancelled;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
-        private delegate void IosOnFileTransferCancelledDelegate(string endpointId, long id, string fileName);
+        private delegate void IosOnFileTransferCancelledDelegate(string endpointId, long payloadId);
         [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferCancelledDelegate))]
-        private static void IosOnFileTransferCancelled(string endpointId, long id)
+        private static void IosOnFileTransferCancelled(string endpointId, long payloadId)
         {
-            Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
         }
         [DllImport(DllName)]
         private static extern void SetFileTransferCancelledDelegate(IosOnFileTransferCancelledDelegate callback);

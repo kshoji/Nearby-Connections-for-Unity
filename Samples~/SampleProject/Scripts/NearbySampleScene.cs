@@ -37,58 +37,58 @@ namespace jp.kshoji.unity.nearby.sample
             {
                 receivedMessages.Add($"OnDiscoveryFailed");
             };
-            NearbyConnectionsManager.Instance.OnEndpointDiscovered += id =>
+            NearbyConnectionsManager.Instance.OnEndpointDiscovered += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointDiscovered id: {id}");
+                receivedMessages.Add($"OnEndpointDiscovered id: {endpointId}");
             };
 
-            NearbyConnectionsManager.Instance.OnConnectionInitiated += (id, endpointName, connection) =>
+            NearbyConnectionsManager.Instance.OnConnectionInitiated += (endpointId, endpointName, connection) =>
             {
-                receivedMessages.Add($"OnConnectionInitiated id: {id}, endpointName: {endpointName}, connection: {connection}");
+                receivedMessages.Add($"OnConnectionInitiated id: {endpointId}, endpointName: {endpointName}, connection: {connection}");
                 if (autoAcceptConnection)
                 {
-                    NearbyConnectionsManager.Instance.AcceptConnection(id);
+                    NearbyConnectionsManager.Instance.AcceptConnection(endpointId);
                 }
             };
-            NearbyConnectionsManager.Instance.OnConnectionFailed += id =>
+            NearbyConnectionsManager.Instance.OnConnectionFailed += endpointId =>
             {
-                receivedMessages.Add($"OnConnectionInitiated id: {id}");
+                receivedMessages.Add($"OnConnectionInitiated id: {endpointId}");
             };
-            NearbyConnectionsManager.Instance.OnEndpointConnected += id =>
+            NearbyConnectionsManager.Instance.OnEndpointConnected += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointConnected id: {id}");
+                receivedMessages.Add($"OnEndpointConnected id: {endpointId}");
             };
-            NearbyConnectionsManager.Instance.OnEndpointDisconnected += id =>
+            NearbyConnectionsManager.Instance.OnEndpointDisconnected += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointDisconnected id: {id}");
-            };
-
-            NearbyConnectionsManager.Instance.OnReceive += (id, l, payload) =>
-            {
-                Debug.Log($"OnReceive id: {id}, l: {l}, payload: {string.Join(", ", payload)}");
-                receivedMessages.Add($"OnReceive [{id}]({l}): {Encoding.UTF8.GetString(payload)}");
+                receivedMessages.Add($"OnEndpointDisconnected id: {endpointId}");
             };
 
-            NearbyConnectionsManager.Instance.OnFileTransferComplete += (id, l, fileName) =>
+            NearbyConnectionsManager.Instance.OnReceive += (endpointId, payloadId, payload) =>
             {
-                Debug.Log($"OnFileTransferComplete id: {id}, l: {l}, fileName: {fileName}");
-                receivedMessages.Add($"OnFileTransferComplete [{id}]({l}): {fileName}");
+                Debug.Log($"OnReceive id: {endpointId}, l: {payloadId}, payload: {string.Join(", ", payload)}");
+                receivedMessages.Add($"OnReceive [{endpointId}]({payloadId}): {Encoding.UTF8.GetString(payload)}");
             };
 
-            NearbyConnectionsManager.Instance.OnFileTransferUpdate += (id, l, bytesTransferred, totalSize) =>
+            NearbyConnectionsManager.Instance.OnFileTransferComplete += (endpointId, payloadId, fileName) =>
+            {
+                Debug.Log($"OnFileTransferComplete id: {endpointId}, l: {payloadId}, fileName: {fileName}");
+                receivedMessages.Add($"OnFileTransferComplete [{endpointId}]({payloadId}): {fileName}");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferUpdate += (endpointId, payloadId, bytesTransferred, totalSize) =>
             {
                 // too much calling on transferring large file, so output logs only
-                Debug.Log($"OnFileTransferUpdate id: {id}, l: {l}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
+                Debug.Log($"OnFileTransferUpdate id: {endpointId}, l: {payloadId}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
             };
 
-            NearbyConnectionsManager.Instance.OnFileTransferCancelled += (id, l) =>
+            NearbyConnectionsManager.Instance.OnFileTransferCancelled += (endpointId, payloadId) =>
             {
-                receivedMessages.Add($"OnFileTransferCancelled [{id}]({l})");
+                receivedMessages.Add($"OnFileTransferCancelled [{endpointId}]({payloadId})");
             };
 
-            NearbyConnectionsManager.Instance.OnFileTransferFailed += (id, l) =>
+            NearbyConnectionsManager.Instance.OnFileTransferFailed += (endpointId, payloadId) =>
             {
-                receivedMessages.Add($"OnFileTransferFailed [{id}]({l})");
+                receivedMessages.Add($"OnFileTransferFailed [{endpointId}]({payloadId})");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
