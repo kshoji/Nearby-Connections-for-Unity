@@ -147,6 +147,39 @@ OnReceiveDelegate receiveCallback;
     }
 }
 
+typedef void ( __cdecl *OnFileTransferCompleteDelegate )( const char*, long, const char* );
+OnFileTransferCompleteDelegate fileTransferCompleteCallback;
+- (void)onFileTransferCompleteWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId fileName:(NSString *)fileName {
+    if (fileTransferCompleteCallback) {
+        const char* bytes = fileName != nil ? [fileName cStringUsingEncoding:kCFStringEncodingUTF8] : NULL;
+        fileTransferCompleteCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytes);
+    }
+}
+
+typedef void ( __cdecl *OnFileTransferUpdateDelegate )( const char*, long, long, long );
+OnFileTransferUpdateDelegate fileTransferUpdateCallback;
+- (void)onFileTransferUpdateWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId bytesTransferred:(int64_t)bytesTransferred totalSize:(int64_t)totalSize {
+    if (fileTransferUpdateCallback) {
+        fileTransferUpdateCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytesTransferred, totalSize);
+    }
+}
+
+typedef void ( __cdecl *OnFileTransferFailedDelegate )( const char*, long );
+OnFileTransferFailedDelegate fileTransferFailedCallback;
+- (void)onFileTransferFailedWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (fileTransferFailedCallback) {
+        fileTransferFailedCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
+typedef void ( __cdecl *OnFileTransferCancelledDelegate )( const char*, long );
+OnFileTransferCancelledDelegate fileTransferCancelledCallback;
+- (void)onFileTransferCancelledWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (fileTransferCancelledCallback) {
+        fileTransferCancelledCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
 @end
 
 #ifdef __cplusplus
@@ -157,66 +190,82 @@ extern "C" {
             instance = [[NearbyConnectionsPlugin alloc] init];
         }
 
-        [NearbyUnityPlugin shared].advertisingEventDelegate = instance;
-        [NearbyUnityPlugin shared].connectionEventDelegate = instance;
-        [NearbyUnityPlugin shared].discoveryEventDelegate = instance;
-        [NearbyUnityPlugin shared].transmissionEventDelegate = instance;
+        NearbyUnityPlugin.shared.advertisingEventDelegate = instance;
+        NearbyUnityPlugin.shared.connectionEventDelegate = instance;
+        NearbyUnityPlugin.shared.discoveryEventDelegate = instance;
+        NearbyUnityPlugin.shared.transmissionEventDelegate = instance;
     }
 
     void IosStartAdvertising(const char *localEndpointName, const char *serviceId, int strategy) {
-        [[NearbyUnityPlugin shared] startAdvertisingWithLocalEndpointName:[NSString stringWithUTF8String: localEndpointName] serviceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
+        [NearbyUnityPlugin.shared startAdvertisingWithLocalEndpointName:[NSString stringWithUTF8String: localEndpointName] serviceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
     }
     
     void IosStopAdvertising() {
-        [[NearbyUnityPlugin shared] stopAdvertising];
+        [NearbyUnityPlugin.shared stopAdvertising];
     }
     
     bool IosIsAdvertising() {
-        return [[NearbyUnityPlugin shared] isAdvertising];
+        return [NearbyUnityPlugin.shared isAdvertising];
     }
 
     void IosStartDiscovering(const char *serviceId, int strategy) {
-        [[NearbyUnityPlugin shared] startDiscoveringWithServiceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
+        [NearbyUnityPlugin.shared startDiscoveringWithServiceId:[NSString stringWithUTF8String: serviceId] strategyInt:strategy];
     }
 
     void IosStopDiscovering() {
-        [[NearbyUnityPlugin shared] stopDiscovering];
+        [NearbyUnityPlugin.shared stopDiscovering];
     }
     
     bool IosIsDiscovering() {
-        return [[NearbyUnityPlugin shared] isDiscovering];
+        return [NearbyUnityPlugin.shared isDiscovering];
     }
 
     void IosConnectToEndpoint(const char *localEndpointName, const char *endpointId) {
-        [[NearbyUnityPlugin shared] requestConnectionTo:[NSString stringWithUTF8String: endpointId] localEndpointName:[NSString stringWithUTF8String: localEndpointName]];
+        [NearbyUnityPlugin.shared requestConnectionTo:[NSString stringWithUTF8String: endpointId] localEndpointName:[NSString stringWithUTF8String: localEndpointName]];
     }
 
     void IosAcceptConnection(const char *endpointId) {
-        [[NearbyUnityPlugin shared] acceptConnectionTo:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared acceptConnectionTo:[NSString stringWithUTF8String: endpointId]];
     }
 
     void IosRejectConnection(const char *endpointId) {
-        [[NearbyUnityPlugin shared] rejectConnectionTo:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared rejectConnectionTo:[NSString stringWithUTF8String: endpointId]];
     }
 
     void IosDisconnect(const char *endpointId) {
-        [[NearbyUnityPlugin shared] disconnectFrom:[NSString stringWithUTF8String: endpointId]];
+        [NearbyUnityPlugin.shared disconnectFrom:[NSString stringWithUTF8String: endpointId]];
     }
     
     void IosDisconnectFromAllEndpoints() {
-        [[NearbyUnityPlugin shared] disconnectFromAllEndpoints];
+        [NearbyUnityPlugin.shared disconnectFromAllEndpoints];
     }
 
     void IosStopAllEndpoints() {
-        [[NearbyUnityPlugin shared] stopAllEndpoints];
+        [NearbyUnityPlugin.shared stopAllEndpoints];
     }
     
     void IosSend(const unsigned char* data, int length) {
-        [[NearbyUnityPlugin shared] sendWithPayload:[NSData dataWithBytes:data length:length]];
+        [NearbyUnityPlugin.shared sendWithPayload:[NSData dataWithBytes:data length:length]];
     }
 
     void IosSendToEndpoint(const unsigned char* data, int length, const char *endpointId) {
-        [[NearbyUnityPlugin shared] sendWithEndpointID:[NSString stringWithUTF8String: endpointId] payload:[NSData dataWithBytes:data length:length]];
+        [NearbyUnityPlugin.shared sendWithEndpointID:[NSString stringWithUTF8String: endpointId] payload:[NSData dataWithBytes:data length:length]];
+    }
+
+    long IosSendFile(const char* url, const char* fileName) {
+        return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName]];
+    }
+
+    long IosSendFileToEndpoint(const char* url, const char* fileName, const char *endpointId) {
+        return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName] endpointID:[NSString stringWithUTF8String: endpointId]];
+    }
+
+    void IosCancelPayloadToEndpoint(long payloadId, const char *endpointId) {
+        [NearbyUnityPlugin.shared cancelWithEndpointID:[NSString stringWithUTF8String: endpointId] payloadID:payloadId];
+    }
+
+    void IosCancelPayload(long payloadId) {
+        [NearbyUnityPlugin.shared cancelWithPayloadID:payloadId];
     }
 
     // delegate methods
@@ -262,6 +311,22 @@ extern "C" {
 
     void SetReceiveDelegate(OnReceiveDelegate callback) {
         receiveCallback = callback;
+    }
+
+    void SetFileTransferCompleteDelegate(OnFileTransferCompleteDelegate callback) {
+        fileTransferCompleteCallback = callback;
+    }
+
+    void SetFileTransferUpdateDelegate(OnFileTransferUpdateDelegate callback) {
+        fileTransferUpdateCallback = callback;
+    }
+
+    void SetFileTransferFailedDelegate(OnFileTransferFailedDelegate callback) {
+        fileTransferFailedCallback = callback;
+    }
+
+    void SetFileTransferCancelledDelegate(OnFileTransferCancelledDelegate callback) {
+        fileTransferCancelledCallback = callback;
     }
 
 #ifdef __cplusplus

@@ -3,6 +3,7 @@ package jp.kshoji.unity.nearby;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 
@@ -27,6 +28,11 @@ import com.google.android.gms.nearby.connection.Strategy;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -126,6 +132,18 @@ public class ConnectionsManager {
     private DiscoveryEventListener discoveryEventListener;
     private ConnectionEventListener connectionEventListener;
     private TransmissionEventListener transmissionEventListener;
+
+    private final Map<Long, FileTransfer> fileTransferDictionary = new HashMap<>();
+    private static final class FileTransfer {
+        private final InputStream inputStream;
+        private final FileOutputStream fileOutputStream;
+        private final String path;
+        FileTransfer(InputStream inputStream, FileOutputStream fileOutputStream, String path) {
+            this.inputStream = inputStream;
+            this.fileOutputStream = fileOutputStream;
+            this.path = path;
+        }
+    }
 
     public void initialize(Activity context,
                            AdvertisingEventListener advertisingEventListener,
@@ -601,7 +619,42 @@ public class ConnectionsManager {
     // data transmission
 
     /**
-     * Sends a {@link Payload} to all currently connected endpoints.
+     * Sends a file {@link Payload} to all currently connected endpoints.
+     *
+     * @param filePath The file you want to send.
+     */
+    protected long sendFile(String filePath) {
+        try {
+            Payload payload = Payload.fromFile(new File(filePath));
+            synchronized (establishedConnections) {
+                send(payload, establishedConnections.keySet());
+            }
+            return payload.getId();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Sends a file {@link Payload} to the specified endpoint.
+     *
+     * @param filePath The file you want to send.
+     * @param endpointId The endpoint ID
+     */
+    protected long sendFile(String filePath, String endpointId) {
+        try {
+            Payload payload = Payload.fromFile(new File(filePath));
+            Set<String> endpoints = new HashSet<>();
+            endpoints.add(endpointId);
+            send(payload, endpoints);
+            return payload.getId();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Sends a bytes {@link Payload} to all currently connected endpoints.
      *
      * @param bytes The data you want to send.
      */
@@ -613,7 +666,7 @@ public class ConnectionsManager {
     }
 
     /**
-     * Sends a {@link Payload} to the specified endpoint.
+     * Sends a bytes {@link Payload} to the specified endpoint.
      *
      * @param bytes The data you want to send.
      * @param endpointId The endpoint ID
@@ -639,7 +692,17 @@ public class ConnectionsManager {
                         });
     }
 
-    /** Callbacks for payloads (bytes of data) sent from another device to us. */
+    /**
+     * Cancels the specified payloadId
+     * @param payloadId the payload ID
+     */
+    protected void cancel(long payloadId) {
+        connectionsClient.cancelPayload(payloadId);
+    }
+
+    /**
+     * Callbacks for payloads (bytes of data) sent from another device to us.
+     */
     private final PayloadCallback mPayloadCallback =
             new PayloadCallback() {
                 @Override
@@ -659,9 +722,77 @@ public class ConnectionsManager {
                 @Override
                 public void onPayloadTransferUpdate(@NonNull String endpointId, @NonNull PayloadTransferUpdate update) {
                     if (USE_LOGS) {
-                        Log.d(TAG,
-                                String.format(
-                                        "onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                        Log.d(TAG, String.format("onPayloadTransferUpdate(endpointId=%s, update=%s)", endpointId, update));
+                    }
+
+                    // Notify transfer update
+                    FileTransfer fileTransfer = fileTransferDictionary.get(update.getPayloadId());
+                    if (fileTransfer != null) {
+                        // Receiving
+                        try {
+                            byte[] buffer = new byte[1024];
+                            int len;
+                            while ((len = fileTransfer.inputStream.read(buffer)) != -1) {
+                                fileTransfer.fileOutputStream.write(buffer, 0, len);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                        if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
+                            transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.FAILURE) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            transmissionEventListener.onFileTransferFailed(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.CANCELED) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            transmissionEventListener.onFileTransferCancelled(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            // Notify transfer finished
+                            transmissionEventListener.onFileTransferComplete(endpointId, update.getPayloadId(), fileTransfer.path);
+                        }
+                    } else {
+                        // Sending
+                        if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
+                            transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.FAILURE) {
+                            transmissionEventListener.onFileTransferFailed(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.CANCELED) {
+                            transmissionEventListener.onFileTransferCancelled(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
+                            // Notify transfer finished
+                            transmissionEventListener.onFileTransferComplete(endpointId, update.getPayloadId(), null);
+                        }
                     }
                 }
             };
@@ -673,7 +804,32 @@ public class ConnectionsManager {
      * @param payload The data.
      */
     protected void onReceive(Endpoint endpoint, Payload payload) {
-        transmissionEventListener.onReceive(endpoint.getId(), payload.getId(), payload.asBytes());
+        switch (payload.getType()) {
+            case Payload.Type.BYTES:
+                transmissionEventListener.onReceive(endpoint.getId(), payload.getId(), payload.asBytes());
+                break;
+            case Payload.Type.FILE:
+                try {
+                    Uri uri = payload.asFile().asUri();
+                    InputStream in = context.getContentResolver().openInputStream(uri);
+                    File tempFile = File.createTempFile("temp", ".bin", context.getCacheDir());
+                    FileOutputStream out = new FileOutputStream(tempFile);
+
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    while ((len = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, len);
+                    }
+                    fileTransferDictionary.put(payload.getId(), new FileTransfer(in, out, tempFile.getAbsolutePath()));
+                } catch (NullPointerException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                break;
+            case Payload.Type.STREAM:
+                break;
+        }
     }
 
     /** Represents a device we can talk to. */
