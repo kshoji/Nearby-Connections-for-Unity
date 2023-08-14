@@ -352,8 +352,12 @@ namespace jp.kshoji.unity.nearby
                 => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
             void onFileTransferComplete(string endpointId, long id, string filePath)
                 => Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
-            void onFileTransferUpdate(string endpointId, long id, long bytesTransferred,long totalSize)
+            void onFileTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] {endpointId, id, bytesTransferred, totalSize});
+            void onFileTransferFailed(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+            void onFileTransferCancelled(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
         }
 #endif
 
@@ -398,6 +402,32 @@ namespace jp.kshoji.unity.nearby
         }
         [DllImport(DllName)]
         private static extern void SetTransferUpdateDelegate(OnFileTransferUpdateDelegate callback);
+#endif
+
+        public delegate void OnFileTransferFailedDelegate(string endpointId, long id);
+        public event OnFileTransferFailedDelegate OnFileTransferFailed;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnFileTransferFailedDelegate(string endpointId, long id, string fileName);
+        [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferFailedDelegate))]
+        private static void IosOnFileTransferFailed(string endpointId, long id)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
+        }
+        [DllImport(DllName)]
+        private static extern void SetReceiveFileDelegate(IosOnFileTransferFailedDelegate callback);
+#endif
+
+        public delegate void OnFileTransferCancelledDelegate(string endpointId, long id);
+        public event OnFileTransferCancelledDelegate OnFileTransferCancelled;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnFileTransferCancelledDelegate(string endpointId, long id, string fileName);
+        [AOT.MonoPInvokeCallback(typeof(IosOnFileTransferCancelledDelegate))]
+        private static void IosOnFileTransferCancelled(string endpointId, long id)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
+        }
+        [DllImport(DllName)]
+        private static extern void SetReceiveFileDelegate(IosOnFileTransferCancelledDelegate callback);
 #endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
@@ -552,6 +582,8 @@ namespace jp.kshoji.unity.nearby
             SetReceiveDelegate(IosOnReceive);
             SetFileTransferCompleteDelegate(IosOnFileTransferComplete);
             SetFileTransferUpdateDelegate(IosOnFileTransferUpdate);
+            SetFileTransferFailedDelegate(IosOnFileTransferFailed);
+            SetFileTransferCancelledDelegate(IosOnFileTransferCancelled);
             IosInitialize();
             initializeCompletedAction?.Invoke();
 #else
@@ -993,6 +1025,30 @@ namespace jp.kshoji.unity.nearby
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
             return 0;
+#endif
+        }
+
+        /// <summary>
+        /// Cancel transfer with specified payload ID
+        /// </summary>
+        /// <param name="payloadId">the payload ID</param>
+        public void CancelTransfer(long payloadId)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            connectionsManager.Call("cancel", payloadId);
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            IosCancelPayload(payloadId);
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 

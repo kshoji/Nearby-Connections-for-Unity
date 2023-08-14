@@ -13,6 +13,7 @@ namespace jp.kshoji.unity.nearby.sample
     {
         private const string ServiceID = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
         private static string LocalEndpointName = Guid.NewGuid().ToString();
+        private static HashSet<long> sendFilePayloads = new HashSet<long>();
 
         private void Awake()
         {
@@ -71,13 +72,23 @@ namespace jp.kshoji.unity.nearby.sample
             NearbyConnectionsManager.Instance.OnFileTransferComplete += (id, l, fileName) =>
             {
                 Debug.Log($"OnFileTransferComplete id: {id}, l: {l}, fileName: {fileName}");
-                receivedMessages.Add($"OnReceiveFile [{id}]({l}): {fileName}");
+                receivedMessages.Add($"OnFileTransferComplete [{id}]({l}): {fileName}");
             };
 
             NearbyConnectionsManager.Instance.OnFileTransferUpdate += (id, l, bytesTransferred, totalSize) =>
             {
                 // too much calling on transferring large file, so output logs only
                 Debug.Log($"OnFileTransferUpdate id: {id}, l: {l}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferCancelled += (id, l) =>
+            {
+                receivedMessages.Add($"OnFileTransferCancelled [{id}]({l})");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferFailed += (id, l) =>
+            {
+                receivedMessages.Add($"OnFileTransferFailed [{id}]({l})");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -186,6 +197,10 @@ namespace jp.kshoji.unity.nearby.sample
  
                                 var payloadId = NearbyConnectionsManager.Instance.Send(tempFileName);
                                 receivedMessages.Add($"Send File payloadId: {payloadId}");
+                                lock (sendFilePayloads)
+                                {
+                                    sendFilePayloads.Add(payloadId);
+                                }
                             }
                             else
                             {
@@ -204,6 +219,22 @@ namespace jp.kshoji.unity.nearby.sample
                         {
                             var payloadId = NearbyConnectionsManager.Instance.Send(filePath);
                             receivedMessages.Add($"Send File payloadId: {payloadId}");
+                            lock (sendFilePayloads)
+                            {
+                                sendFilePayloads.Add(payloadId);
+                            }
+                        }
+                    }
+
+                    if (GUILayout.Button("Cancel Send File"))
+                    {
+                        lock (sendFilePayloads)
+                        {
+                            foreach (var payloadId in sendFilePayloads)
+                            {
+                                NearbyConnectionsManager.Instance.CancelTransfer(payloadId);
+                            }
+                            sendFilePayloads.Clear();
                         }
                     }
                     
