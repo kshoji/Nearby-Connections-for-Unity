@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace jp.kshoji.unity.nearby.sample
 {
@@ -10,6 +13,7 @@ namespace jp.kshoji.unity.nearby.sample
     {
         private const string ServiceID = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
         private static string LocalEndpointName = Guid.NewGuid().ToString();
+        private static HashSet<long> sendFilePayloads = new HashSet<long>();
 
         private void Awake()
         {
@@ -33,36 +37,58 @@ namespace jp.kshoji.unity.nearby.sample
             {
                 receivedMessages.Add($"OnDiscoveryFailed");
             };
-            NearbyConnectionsManager.Instance.OnEndpointDiscovered += id =>
+            NearbyConnectionsManager.Instance.OnEndpointDiscovered += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointDiscovered id: {id}");
+                receivedMessages.Add($"OnEndpointDiscovered id: {endpointId}");
             };
 
-            NearbyConnectionsManager.Instance.OnConnectionInitiated += (id, endpointName, connection) =>
+            NearbyConnectionsManager.Instance.OnConnectionInitiated += (endpointId, endpointName, connection) =>
             {
-                receivedMessages.Add($"OnConnectionInitiated id: {id}, endpointName: {endpointName}, connection: {connection}");
+                receivedMessages.Add($"OnConnectionInitiated id: {endpointId}, endpointName: {endpointName}, connection: {connection}");
                 if (autoAcceptConnection)
                 {
-                    NearbyConnectionsManager.Instance.AcceptConnection(id);
+                    NearbyConnectionsManager.Instance.AcceptConnection(endpointId);
                 }
             };
-            NearbyConnectionsManager.Instance.OnConnectionFailed += id =>
+            NearbyConnectionsManager.Instance.OnConnectionFailed += endpointId =>
             {
-                receivedMessages.Add($"OnConnectionInitiated id: {id}");
+                receivedMessages.Add($"OnConnectionInitiated id: {endpointId}");
             };
-            NearbyConnectionsManager.Instance.OnEndpointConnected += id =>
+            NearbyConnectionsManager.Instance.OnEndpointConnected += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointConnected id: {id}");
+                receivedMessages.Add($"OnEndpointConnected id: {endpointId}");
             };
-            NearbyConnectionsManager.Instance.OnEndpointDisconnected += id =>
+            NearbyConnectionsManager.Instance.OnEndpointDisconnected += endpointId =>
             {
-                receivedMessages.Add($"OnEndpointDisconnected id: {id}");
+                receivedMessages.Add($"OnEndpointDisconnected id: {endpointId}");
             };
 
-            NearbyConnectionsManager.Instance.OnReceive += (id, l, payload) =>
+            NearbyConnectionsManager.Instance.OnReceive += (endpointId, payloadId, payload) =>
             {
-                Debug.Log($"OnReceive id: {id}, l: {l}, payload: {string.Join(", ", payload)}");
-                receivedMessages.Add($"OnReceive [{id}]({l}): {Encoding.UTF8.GetString(payload)}");
+                Debug.Log($"OnReceive id: {endpointId}, l: {payloadId}, payload: {string.Join(", ", payload)}");
+                receivedMessages.Add($"OnReceive [{endpointId}]({payloadId}): {Encoding.UTF8.GetString(payload)}");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferComplete += (endpointId, payloadId, fileName) =>
+            {
+                Debug.Log($"OnFileTransferComplete id: {endpointId}, l: {payloadId}, fileName: {fileName}");
+                receivedMessages.Add($"OnFileTransferComplete [{endpointId}]({payloadId}): {fileName}");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferUpdate += (endpointId, payloadId, bytesTransferred, totalSize) =>
+            {
+                // too much calling on transferring large file, so output logs only
+                Debug.Log($"OnFileTransferUpdate id: {endpointId}, l: {payloadId}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferCancelled += (endpointId, payloadId) =>
+            {
+                receivedMessages.Add($"OnFileTransferCancelled [{endpointId}]({payloadId})");
+            };
+
+            NearbyConnectionsManager.Instance.OnFileTransferFailed += (endpointId, payloadId) =>
+            {
+                receivedMessages.Add($"OnFileTransferFailed [{endpointId}]({payloadId})");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -157,6 +183,61 @@ namespace jp.kshoji.unity.nearby.sample
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
                     }
 
+                    if (GUILayout.Button("Send File"))
+                    {
+                        IEnumerator GetFileContentsAndSend(string filePath)
+                        {
+                            var request = UnityWebRequest.Get(filePath);
+                            yield return request.SendWebRequest();
+                            if (request.result == UnityWebRequest.Result.Success)
+                            {
+                                var tempFileName = Path.GetTempFileName();
+                                using var fileStream = new FileStream(tempFileName, FileMode.OpenOrCreate);
+                                fileStream.Write(request.downloadHandler.data, 0, request.downloadHandler.data.Length);
+ 
+                                var payloadId = NearbyConnectionsManager.Instance.Send(tempFileName);
+                                receivedMessages.Add($"Send File payloadId: {payloadId}");
+                                lock (sendFilePayloads)
+                                {
+                                    sendFilePayloads.Add(payloadId);
+                                }
+                            }
+                            else
+                            {
+                                Debug.LogError($"File {filePath} not found.");
+                            }
+                        }
+
+                        // TODO: place a file to Assets/StreamingAssets/testFile.zip
+                        var filePath = Path.Combine(Application.streamingAssetsPath, "testFile.zip");
+                        if (Uri.IsWellFormedUriString(filePath, UriKind.Absolute))
+                        {
+                            // for Android
+                            StartCoroutine(GetFileContentsAndSend(filePath));
+                        }
+                        else
+                        {
+                            var payloadId = NearbyConnectionsManager.Instance.Send(filePath);
+                            receivedMessages.Add($"Send File payloadId: {payloadId}");
+                            lock (sendFilePayloads)
+                            {
+                                sendFilePayloads.Add(payloadId);
+                            }
+                        }
+                    }
+
+                    if (GUILayout.Button("Cancel Send File"))
+                    {
+                        lock (sendFilePayloads)
+                        {
+                            foreach (var payloadId in sendFilePayloads)
+                            {
+                                NearbyConnectionsManager.Instance.CancelTransfer(payloadId);
+                            }
+                            sendFilePayloads.Clear();
+                        }
+                    }
+                    
                     GUILayout.Label($"Discovered endpoints:");
                     var discoveredEndpoints = NearbyConnectionsManager.Instance.GetDiscoveredEndpoints();
                     foreach (var discoveredEndpoint in discoveredEndpoints)
