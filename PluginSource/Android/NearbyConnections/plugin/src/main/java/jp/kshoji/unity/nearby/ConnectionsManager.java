@@ -692,7 +692,17 @@ public class ConnectionsManager {
                         });
     }
 
-    /** Callbacks for payloads (bytes of data) sent from another device to us. */
+    /**
+     * Cancels the specified payloadId
+     * @param payloadId the payload ID
+     */
+    protected void cancel(long payloadId) {
+        connectionsClient.cancelPayload(payloadId);
+    }
+
+    /**
+     * Callbacks for payloads (bytes of data) sent from another device to us.
+     */
     private final PayloadCallback mPayloadCallback =
             new PayloadCallback() {
                 @Override
@@ -730,6 +740,32 @@ public class ConnectionsManager {
                         }
                         if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
                             transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.FAILURE) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            transmissionEventListener.onFileTransferFailed(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.CANCELED) {
+                            // Close streams
+                            try {
+                                fileTransfer.inputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            try {
+                                fileTransfer.fileOutputStream.close();
+                            } catch (IOException ignored) {
+                            }
+                            fileTransferDictionary.remove(update.getPayloadId());
+
+                            transmissionEventListener.onFileTransferCancelled(endpointId, update.getPayloadId());
                         } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
                             // Close streams
                             try {
@@ -749,6 +785,10 @@ public class ConnectionsManager {
                         // Sending
                         if (update.getStatus() == PayloadTransferUpdate.Status.IN_PROGRESS) {
                             transmissionEventListener.onFileTransferUpdate(endpointId, update.getPayloadId(), update.getBytesTransferred(), update.getTotalBytes());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.FAILURE) {
+                            transmissionEventListener.onFileTransferFailed(endpointId, update.getPayloadId());
+                        } else if (update.getStatus() == PayloadTransferUpdate.Status.CANCELED) {
+                            transmissionEventListener.onFileTransferCancelled(endpointId, update.getPayloadId());
                         } else if (update.getStatus() == PayloadTransferUpdate.Status.SUCCESS) {
                             // Notify transfer finished
                             transmissionEventListener.onFileTransferComplete(endpointId, update.getPayloadId(), null);
