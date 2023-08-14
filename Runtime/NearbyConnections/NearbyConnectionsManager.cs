@@ -388,7 +388,7 @@ namespace jp.kshoji.unity.nearby
             Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] { endpointId, id, fileName });
         }
         [DllImport(DllName)]
-        private static extern void SetReceiveFileDelegate(IosOnFileTransferCompleteDelegate callback);
+        private static extern void SetFileTransferCompleteDelegate(IosOnFileTransferCompleteDelegate callback);
 #endif
 
         public delegate void OnFileTransferUpdateDelegate(string endpointId, long id, long bytesTransferred, long totalSize);
@@ -401,7 +401,7 @@ namespace jp.kshoji.unity.nearby
             Instance.asyncOperation.Post(o => Instance.OnFileTransferUpdate?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (long)((object[])o)[2], (long)((object[])o)[3]), new object[] { endpointId, id, bytesTransferred, totalSize });
         }
         [DllImport(DllName)]
-        private static extern void SetTransferUpdateDelegate(OnFileTransferUpdateDelegate callback);
+        private static extern void SetFileTransferUpdateDelegate(OnFileTransferUpdateDelegate callback);
 #endif
 
         public delegate void OnFileTransferFailedDelegate(string endpointId, long id);
@@ -414,7 +414,7 @@ namespace jp.kshoji.unity.nearby
             Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
         }
         [DllImport(DllName)]
-        private static extern void SetReceiveFileDelegate(IosOnFileTransferFailedDelegate callback);
+        private static extern void SetFileTransferFailedDelegate(IosOnFileTransferFailedDelegate callback);
 #endif
 
         public delegate void OnFileTransferCancelledDelegate(string endpointId, long id);
@@ -427,7 +427,7 @@ namespace jp.kshoji.unity.nearby
             Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, id });
         }
         [DllImport(DllName)]
-        private static extern void SetReceiveFileDelegate(IosOnFileTransferCancelledDelegate callback);
+        private static extern void SetFileTransferCancelledDelegate(IosOnFileTransferCancelledDelegate callback);
 #endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
@@ -483,7 +483,7 @@ namespace jp.kshoji.unity.nearby
         private static extern long IosSendFileToEndpoint(string path, string fileName, string endpointId);
 
         [DllImport(DllName)]
-        private static extern long IosCancelPayload(long payloadId, string endpointId);
+        private static extern long IosCancelPayload(long payloadId);
 #endif
         
 #if UNITY_ANDROID && !UNITY_EDITOR
