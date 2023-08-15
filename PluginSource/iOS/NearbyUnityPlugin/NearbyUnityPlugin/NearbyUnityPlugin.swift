@@ -27,11 +27,20 @@ import NearbyConnections
 }
 
 @objc protocol TransmissionEventDelegate : AnyObject {
+    // Bytes
     func onReceive(endpointId: String, id: Int64, payload: [UInt8]);
+
+    // File
     func onFileTransferComplete(endpointId: String, id: Int64, fileName: String?);
     func onFileTransferUpdate(endpointId: String, id: Int64, bytesTransferred: Int64, totalSize: Int64);
     func onFileTransferFailed(endpointId: String, id: Int64);
     func onFileTransferCancelled(endpointId: String, id: Int64);
+
+    // Stream
+    func onReceiveStream(endpointId: String, id: Int64, streamData: [UInt8]);
+    func onStreamTransferComplete(endpointId: String, id: Int64);
+    func onStreamTransferFailed(endpointId: String, id: Int64);
+    func onStreamTransferCancelled(endpointId: String, id: Int64);
 }
 
 struct Payload: Identifiable {
@@ -40,7 +49,11 @@ struct Payload: Identifiable {
     var status: Status
     let isIncoming: Bool
     let cancellationToken: CancellationToken?
+    // File
     let localURL: URL?
+    // Stream
+    let outputStream: OutputStream?
+    var inputStream: InputStream?
 
     enum PayloadType {
         case bytes, stream, file
@@ -270,17 +283,16 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil
+            localURL: nil,
+            outputStream: nil,
+            inputStream: nil
         )
 
 #if DEBUG
         print("send payload: \(payload), payloadId: \(payloadID)")
 #endif
 
-        for endpoint in connections {
-            guard let index = connections.firstIndex(where: { $0.endpointID == endpoint.endpointID }) else {
-                return 0
-            }
+        for index in connections.indices {
             connections[index].payloads.insert(payload, at: 0)
         }
 
@@ -302,8 +314,127 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil
+            localURL: nil,
+            outputStream: nil,
+            inputStream: nil
         )
+
+        connections[index].payloads.insert(payload, at: 0)
+
+        return payload.id
+    }
+
+    @objc func send(data: UnsafePointer<UInt8>, count: Int64) -> Int64 {
+        let payloadID = PayloadID.unique()
+        let endpointIDs = connections.map{ $0.endpointID }
+
+        if (connections.count < 1) {
+            // no endpoints connected
+            return 0
+        }
+
+        var inputStream: InputStream? = nil
+        var outputStream: OutputStream? = nil
+        Stream.getBoundStreams(withBufferSize: 1048576, inputStream: &inputStream, outputStream: &outputStream)
+        if inputStream == nil || outputStream == nil {
+            return 0
+        }
+        inputStream!.open()
+        outputStream!.open()
+        
+        let token = connectionManager?.startStream(inputStream!, to: endpointIDs, id: payloadID)
+        let payload = Payload(
+            id: payloadID,
+            type: .stream,
+            status: .inProgress(Progress()),
+            isIncoming: false,
+            cancellationToken: token,
+            localURL: nil,
+            outputStream: outputStream,
+            inputStream: inputStream
+        )
+
+        outputStream!.write(data, maxLength: Int(count))
+
+#if DEBUG
+        print("send payload: \(payload), payloadID: \(payloadID), inputStream: \(String(describing: inputStream)), outputStream: \(String(describing: outputStream))")
+#endif
+
+        for index in connections.indices {
+            connections[index].payloads.insert(payload, at: 0)
+        }
+
+        return payload.id
+    }
+    
+    @objc func send(data: UnsafePointer<UInt8>, count: Int64, payloadID: PayloadID) {
+#if DEBUG
+        print("send payload payloadID: \(payloadID) count: \(count) data: \(data)")
+#endif
+        for endpoint in connections {
+            guard let payloadIndex = endpoint.payloads.firstIndex(where: { $0.id == payloadID }) else {
+                continue
+            }
+            if endpoint.payloads[payloadIndex].outputStream == nil {
+                continue
+            }
+
+#if DEBUG
+            print("send payload update payloadID: \(payloadID) endpoint: \(endpoint)")
+#endif
+
+            if (count == 0) {
+#if DEBUG
+                print("send payload update payloadID: \(payloadID) endpoint: \(endpoint) count == 0, last payload")
+#endif
+                // last payload
+                if (endpoint.payloads[payloadIndex].outputStream!.streamStatus == .open) {
+                    endpoint.payloads[payloadIndex].outputStream!.close()
+                }
+                if (endpoint.payloads[payloadIndex].inputStream!.streamStatus == .open) {
+                    endpoint.payloads[payloadIndex].inputStream!.close()
+                }
+                continue
+            }
+
+            endpoint.payloads[payloadIndex].outputStream!.write(data, maxLength: Int(count))
+        }
+    }
+
+    @objc func send(data: UnsafePointer<UInt8>, count: Int64, endpointID: String) -> Int64 {
+        guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
+            return 0
+        }
+
+        let payloadID = PayloadID.unique()
+        let endpointIDs = [endpointID]
+
+        var inputStream: InputStream? = nil
+        var outputStream: OutputStream? = nil
+        Stream.getBoundStreams(withBufferSize: 1048576, inputStream: &inputStream, outputStream: &outputStream)
+        if inputStream == nil || outputStream == nil {
+            return 0
+        }
+        inputStream!.open()
+        outputStream!.open()
+
+        outputStream!.write(data, maxLength: Int(count))
+
+        let token = connectionManager?.startStream(inputStream!, to: endpointIDs, id: payloadID)
+        let payload = Payload(
+            id: payloadID,
+            type: .stream,
+            status: .inProgress(Progress()),
+            isIncoming: false,
+            cancellationToken: token,
+            localURL: nil,
+            outputStream: outputStream,
+            inputStream: inputStream
+        )
+
+#if DEBUG
+        print("send payload: \(payload), payloadId: \(payloadID)")
+#endif
 
         connections[index].payloads.insert(payload, at: 0)
 
@@ -357,13 +488,12 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil
+            localURL: nil,
+            outputStream: nil,
+            inputStream: nil
         )
         
-        for endpoint in connections {
-            guard let index = connections.firstIndex(where: { $0.endpointID == endpoint.endpointID }) else {
-                return
-            }
+        for index in connections.indices {
             connections[index].payloads.insert(payload, at: 0)
         }
     }
@@ -385,7 +515,9 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil
+            localURL: nil,
+            outputStream: nil,
+            inputStream: nil
         )
 
         connections[index].payloads.insert(payload, at: 0)
@@ -474,7 +606,9 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             status: .success,
             isIncoming: true,
             cancellationToken: nil,
-            localURL: nil
+            localURL: nil,
+            outputStream: nil,
+            inputStream: nil
         )
         guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
@@ -489,20 +623,80 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
 #if DEBUG
         print("connectionManager didReceive stream, payloadID: \(payloadID), endpointID: \(endpointID), cancellationToken: \(token)")
 #endif
-        let payload = Payload(
-            id: payloadID,
-            type: .stream,
-            status: .success,
-            isIncoming: true,
-            cancellationToken: token,
-            localURL: nil
-        )
-        guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
+        guard let connectionIndex = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
         }
-        connections[index].payloads.insert(payload, at: 0)
+
+        guard let payloadIndex = connections[connectionIndex].payloads.firstIndex(where: { $0.id == payloadID }) else {
+            // new payload
+            let payload = Payload(
+                id: payloadID,
+                type: .stream,
+                status: .success,
+                isIncoming: true,
+                cancellationToken: token,
+                localURL: nil,
+                outputStream: nil,
+                inputStream: stream
+            )
+            connections[connectionIndex].payloads.insert(payload, at: 0)
+
+ #if DEBUG
+            print("payload.inputStream: \(String(describing: payload.inputStream)), stream: \(stream)")
+ #endif
+            return
+        }
+
+        // existing payload
+        var payload = connections[connectionIndex].payloads[payloadIndex]
+        payload.inputStream = stream
     }
 
+    func readStreamAndCallback(endpointID: EndpointID, payload: Payload) {
+        if payload.isIncoming == false {
+            return
+        }
+
+        let bufferSize = 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer {
+            buffer.deallocate()
+        }
+
+        if (payload.inputStream!.streamStatus != .open) {
+            payload.inputStream!.open()
+        }
+
+        // read once
+#if DEBUG
+        print("readStreamAndCallback reading.. \(String(describing: payload.inputStream))")
+#endif
+        let read = payload.inputStream!.read(buffer, maxLength: bufferSize)
+        if read < 0 {
+            // stream error
+#if DEBUG
+            print("connectionManager didReceive stream, error: \(String(describing: payload.inputStream!.streamError))")
+#endif
+            return
+        } else if read == 0 {
+#if DEBUG
+            print("readStreamAndCallback read == 0 EOF")
+#endif
+            // EOF
+            return
+        }
+#if DEBUG
+        print("readStreamAndCallback read: \(read) bytes")
+#endif
+
+        // Notify to Unity (stream received)
+        let bts = withUnsafePointer(to: &buffer[0]) {
+            $0.withMemoryRebound(to: UInt8.self, capacity: read) { $0 }
+        }
+        let bytesArray = UnsafeBufferPointer(start: bts, count: read).map { $0 }
+        transmissionEventDelegate?.onReceiveStream(endpointId: endpointID, id: payload.id, streamData: bytesArray)
+    }
+    
     public func connectionManager(_ connectionManager: ConnectionManager, didStartReceivingResourceWithID payloadID: PayloadID, from endpointID: EndpointID, at localURL: URL, withName name: String, cancellationToken token: CancellationToken) {
 #if DEBUG
         print("connectionManager didStartReceivingResourceWithID payloadID: \(payloadID), endpointID: \(endpointID), localURL: \(localURL), name: \(name), cancellationToken: \(token)")
@@ -513,7 +707,9 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             status: .inProgress(Progress()),
             isIncoming: true,
             cancellationToken: token,
-            localURL: localURL
+            localURL: localURL,
+            outputStream: nil,
+            inputStream: nil
         )
         guard let index = connections.firstIndex(where: { $0.endpointID == endpointID }) else {
             return
@@ -522,14 +718,14 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
     }
 
     public func connectionManager(_ connectionManager: ConnectionManager, didReceiveTransferUpdate update: TransferUpdate, from endpointID: EndpointID, forPayload payloadID: PayloadID) {
-#if DEBUG
-        print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), update: \(update)")
-#endif
         guard let connectionIndex = connections.firstIndex(where: { $0.endpointID == endpointID }),
               let payloadIndex = connections[connectionIndex].payloads.firstIndex(where: { $0.id == payloadID }) else {
             return
         }
         var payload = connections[connectionIndex].payloads[payloadIndex]
+#if DEBUG
+        print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), type: \(payload.type) update: \(update)")
+#endif
         switch update {
         case .success:
             payload.status = .success
@@ -542,16 +738,32 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
                 } else {
                     transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, fileName: nil)
                 }
+            } else if (payload.type == .stream) {
+                transmissionEventDelegate?.onStreamTransferComplete(endpointId: endpointID, id: payloadID)
             }
         case .canceled:
             connections[connectionIndex].payloads[payloadIndex].status = .canceled
-            transmissionEventDelegate?.onFileTransferCancelled(endpointId: endpointID, id: payloadID)
+            if (payload.type == .file) {
+                transmissionEventDelegate?.onFileTransferCancelled(endpointId: endpointID, id: payloadID)
+            } else if (payload.type == .stream) {
+                transmissionEventDelegate?.onStreamTransferCancelled(endpointId: endpointID, id: payloadID)
+            }
         case .failure:
             connections[connectionIndex].payloads[payloadIndex].status = .failure
-            transmissionEventDelegate?.onFileTransferFailed(endpointId: endpointID, id: payloadID)
+            if (payload.type == .file) {
+                transmissionEventDelegate?.onFileTransferFailed(endpointId: endpointID, id: payloadID)
+            } else if (payload.type == .stream) {
+                transmissionEventDelegate?.onStreamTransferFailed(endpointId: endpointID, id: payloadID)
+            }
         case let .progress(progress):
             connections[connectionIndex].payloads[payloadIndex].status = .inProgress(progress)
-            transmissionEventDelegate?.onFileTransferUpdate(endpointId: endpointID, id: payloadID, bytesTransferred: progress.completedUnitCount, totalSize: progress.totalUnitCount)
+            if (payload.type == .file) {
+                transmissionEventDelegate?.onFileTransferUpdate(endpointId: endpointID, id: payloadID, bytesTransferred: progress.completedUnitCount, totalSize: progress.totalUnitCount)
+            } else if (payload.type == .stream) {
+                if (payload.isIncoming) {
+                    readStreamAndCallback(endpointID: endpointID, payload: payload)
+                }
+            }
         }
     }
 
