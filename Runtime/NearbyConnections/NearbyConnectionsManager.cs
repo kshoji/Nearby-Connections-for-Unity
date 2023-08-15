@@ -350,6 +350,7 @@ namespace jp.kshoji.unity.nearby
             }
             void onReceive(string endpointId, long id, byte[] payload)
                 => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
+
             void onFileTransferComplete(string endpointId, long id, string filePath)
                 => Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
             void onFileTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
@@ -358,6 +359,15 @@ namespace jp.kshoji.unity.nearby
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
             void onFileTransferCancelled(string endpointId, long id)
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+
+            void onReceiveStream(string endpointId, long id, byte[] payload)
+                => Instance.asyncOperation.Post(o => Instance.OnReceiveStream?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
+            void onStreamTransferComplete(string endpointId, long id)
+                => Instance.asyncOperation.Post(o => Instance.OnStreamTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+            void onStreamTransferFailed(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnStreamTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+            void onStreamTransferCancelled(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnStreamTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
         }
 #endif
 
@@ -428,6 +438,18 @@ namespace jp.kshoji.unity.nearby
         [DllImport(DllName)]
         private static extern void SetFileTransferCancelledDelegate(IosOnFileTransferCancelledDelegate callback);
 #endif
+
+        public delegate void OnReceiveStreamDelegate(string endpointId, long payloadId, byte[] payload);
+        public event OnReceiveStreamDelegate OnReceiveStream;
+
+        public delegate void OnStreamTransferCompleteDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferCompleteDelegate OnStreamTransferComplete;
+
+        public delegate void OnStreamTransferFailedDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferFailedDelegate OnStreamTransferFailed;
+
+        public delegate void OnStreamTransferCancelledDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferCancelledDelegate OnStreamTransferCancelled;
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [DllImport(DllName)]
@@ -1024,6 +1046,53 @@ namespace jp.kshoji.unity.nearby
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
             return 0;
+#endif
+        }
+
+        public long SendStream(byte[] payloadBytes, string endpointId = null)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            long result;
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            if (endpointId == null)
+            {
+                result = connectionsManager.Call<long>("sendStream", payloadBytes);
+            }
+            else
+            {
+                result = connectionsManager.Call<long>("sendStream", payloadBytes, endpointId);
+            }
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+            return result;
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
+            return 0;
+#endif
+        }
+
+        public void SendStream(long payloadId, byte[] payloadBytes)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            long result;
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            connectionsManager.Call("sendStream", payloadId, payloadBytes);
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 

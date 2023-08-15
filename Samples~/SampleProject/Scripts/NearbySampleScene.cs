@@ -14,6 +14,7 @@ namespace jp.kshoji.unity.nearby.sample
         private const string ServiceID = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
         private static string LocalEndpointName = Guid.NewGuid().ToString();
         private static HashSet<long> sendFilePayloads = new HashSet<long>();
+        private static long? sendStreamPayload;
 
         private void Awake()
         {
@@ -89,6 +90,11 @@ namespace jp.kshoji.unity.nearby.sample
             NearbyConnectionsManager.Instance.OnFileTransferFailed += (endpointId, payloadId) =>
             {
                 receivedMessages.Add($"OnFileTransferFailed [{endpointId}]({payloadId})");
+            };
+
+            NearbyConnectionsManager.Instance.OnReceiveStream += (endpointId, payloadId, payload) =>
+            {
+                receivedMessages.Add($"OnReceiveStream [{endpointId}]({payloadId}) {payload?.Length} bytes");
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -181,6 +187,32 @@ namespace jp.kshoji.unity.nearby.sample
                     if (GUILayout.Button("Send") && !string.IsNullOrEmpty(sendText))
                     {
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
+                    }
+
+                    if (GUILayout.Button("Send Stream"))
+                    {
+                        var sendData = string.IsNullOrEmpty(sendText) ? null : Encoding.UTF8.GetBytes(sendText);
+                        if (sendStreamPayload.HasValue)
+                        {
+                            if (sendData == null)
+                            {
+                                return;
+                            }
+
+                            // TODO replace with InputStream
+                            NearbyConnectionsManager.Instance.SendStream(sendStreamPayload.Value, sendData);
+                            receivedMessages.Add($"SendStream payloadId: {sendStreamPayload.Value}");
+                        }
+                        else
+                        {
+                            // TODO replace with InputStream
+                            sendStreamPayload = NearbyConnectionsManager.Instance.SendStream(sendData);
+                            receivedMessages.Add($"SendStream payloadId: {sendStreamPayload.Value}");
+                            if (sendData == null)
+                            {
+                                sendStreamPayload = null;
+                            }
+                        }
                     }
 
                     if (GUILayout.Button("Send File"))
