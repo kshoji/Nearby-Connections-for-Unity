@@ -441,15 +441,58 @@ namespace jp.kshoji.unity.nearby
 
         public delegate void OnReceiveStreamDelegate(string endpointId, long payloadId, byte[] payload);
         public event OnReceiveStreamDelegate OnReceiveStream;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnReceiveStreamDelegate(string endpointId, long payloadId, int payloadLength, IntPtr payload);
+        [AOT.MonoPInvokeCallback(typeof(IosOnReceiveStreamDelegate))]
+        private static void IosOnReceiveStream(string endpointId, long payloadId, int payloadLength, IntPtr payload)
+        {
+            var mangedData = new byte[payloadLength];
+            Marshal.Copy(payload, mangedData, 0, payloadLength);
+            Instance.asyncOperation.Post(o => Instance.OnReceiveStream?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, payloadId, mangedData });
+            Marshal.FreeHGlobal(payload);
+        }
+        [DllImport(DllName)]
+        private static extern void SetReceiveStreamDelegate(IosOnReceiveStreamDelegate callback);
+#endif
 
         public delegate void OnStreamTransferCompleteDelegate(string endpointId, long payloadId);
         public event OnStreamTransferCompleteDelegate OnStreamTransferComplete;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferCompleteDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferCompleteDelegate))]
+        private static void IosOnStreamTransferComplete(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferCompleteDelegate(IosOnStreamTransferCompleteDelegate callback);
+#endif
 
         public delegate void OnStreamTransferFailedDelegate(string endpointId, long payloadId);
         public event OnStreamTransferFailedDelegate OnStreamTransferFailed;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferFailedDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferFailedDelegate))]
+        private static void IosOnStreamTransferFailed(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferFailedDelegate(IosOnStreamTransferFailedDelegate callback);
+#endif
 
         public delegate void OnStreamTransferCancelledDelegate(string endpointId, long payloadId);
         public event OnStreamTransferCancelledDelegate OnStreamTransferCancelled;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferCancelledDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferCancelledDelegate))]
+        private static void IosOnStreamTransferCancelled(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferCancelledDelegate(IosOnStreamTransferCancelledDelegate callback);
+#endif
 
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [DllImport(DllName)]
@@ -502,6 +545,15 @@ namespace jp.kshoji.unity.nearby
 
         [DllImport(DllName)]
         private static extern long IosSendFileToEndpoint(string path, string fileName, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern long IosSendStream(byte[] data, int length);
+
+        [DllImport(DllName)]
+        private static extern long IosSendStreamToEndpoint(byte[] data, int length, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern void IosSendStreamUpdate(byte[] data, int length, long payloadId);
 
         [DllImport(DllName)]
         private static extern long IosCancelPayload(long payloadId);
@@ -605,6 +657,10 @@ namespace jp.kshoji.unity.nearby
             SetFileTransferUpdateDelegate(IosOnFileTransferUpdate);
             SetFileTransferFailedDelegate(IosOnFileTransferFailed);
             SetFileTransferCancelledDelegate(IosOnFileTransferCancelled);
+            SetReceiveStreamDelegate(IosOnReceiveStream);
+            SetStreamTransferCompleteDelegate(IosOnStreamTransferComplete);
+            SetStreamTransferFailedDelegate(IosOnStreamTransferFailed);
+            SetStreamTransferCancelledDelegate(IosOnStreamTransferCancelled);
             IosInitialize();
             initializeCompletedAction?.Invoke();
 #else
@@ -1070,6 +1126,17 @@ namespace jp.kshoji.unity.nearby
                 AndroidJNI.DetachCurrentThread();
             }
             return result;
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            long result;
+            if (endpointId == null)
+            {
+                result = IosSendStream(payloadBytes, payloadBytes.Length);
+            }
+            else
+            {
+                result = IosSendStreamToEndpoint(payloadBytes, payloadBytes.Length, endpointId);
+            }
+            return result;
 #else
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
@@ -1090,6 +1157,8 @@ namespace jp.kshoji.unity.nearby
             {
                 AndroidJNI.DetachCurrentThread();
             }
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            IosSendStreamUpdate(payloadBytes, payloadBytes.Length, payloadId);
 #else
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
