@@ -1,16 +1,21 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 using UnityEngine;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
 using System.ComponentModel;
+#endif
 using System.IO;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
 using System.Runtime.InteropServices;
 #endif
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
 using AsyncOperation = System.ComponentModel.AsyncOperation;
+#endif
 
 namespace jp.kshoji.unity.nearby
 {
@@ -24,13 +29,18 @@ namespace jp.kshoji.unity.nearby
         private AndroidJavaObject connectionsManager;
         private bool permissionRequested;
 #endif
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
         private AsyncOperation asyncOperation;
+#endif
 
+#if UNITY_ANDROID && !UNITY_EDITOR
         private Action onInitializeCompleted;
+#endif
 
         private readonly HashSet<string> discoveredEndpoints = new HashSet<string>();
         private readonly HashSet<string> pendingConnections = new HashSet<string>();
         private readonly HashSet<string> establishedConnections = new HashSet<string>();
+        private readonly Dictionary<PairedStream, long> streamPayloadDictionary = new Dictionary<PairedStream, long>();
 
         /// <summary>
         /// Get an instance<br />
@@ -41,7 +51,9 @@ namespace jp.kshoji.unity.nearby
         private static readonly Lazy<NearbyConnectionsManager> lazyInstance = new Lazy<NearbyConnectionsManager>(() =>
         {
             var instance = new GameObject("NearbyConnectionsManager").AddComponent<NearbyConnectionsManager>();
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
             instance.asyncOperation = AsyncOperationManager.CreateOperation(null);
+#endif
 
 #if UNITY_EDITOR
             if (EditorApplication.isPlaying)
@@ -350,6 +362,7 @@ namespace jp.kshoji.unity.nearby
             }
             void onReceive(string endpointId, long id, byte[] payload)
                 => Instance.asyncOperation.Post(o => Instance.OnReceive?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
+
             void onFileTransferComplete(string endpointId, long id, string filePath)
                 => Instance.asyncOperation.Post(o => Instance.OnFileTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (string)((object[])o)[2]), new object[] {endpointId, id, filePath});
             void onFileTransferUpdate(string endpointId, long id, long bytesTransferred, long totalSize)
@@ -358,6 +371,37 @@ namespace jp.kshoji.unity.nearby
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
             void onFileTransferCancelled(string endpointId, long id)
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+
+            void onReceiveStream(string endpointId, long id, byte[] payload)
+                => Instance.asyncOperation.Post(o =>
+                {
+                    Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]);
+                    var payloadId = (long)((object[])o)[1];
+                    if (Instance.streamPayloadDictionary.ContainsValue(payloadId))
+                    {
+                        foreach (var keyValue in Instance.streamPayloadDictionary)
+                        {
+                            if (keyValue.Value == payloadId)
+                            {
+                                keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var stream = new PairedStream();
+                        stream.OutputStream.Write((byte[])((object[])o)[2]);
+                        Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
+                        Instance.streamPayloadDictionary.Add(stream, payloadId);
+                    }
+                }, new object[] {endpointId, id, payload});
+            void onStreamTransferComplete(string endpointId, long id)
+                => Instance.asyncOperation.Post(o => Instance.OnStreamTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+            void onStreamTransferFailed(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnStreamTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
+            void onStreamTransferCancelled(string endpointId, long id)
+				=> Instance.asyncOperation.Post(o => Instance.OnStreamTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
         }
 #endif
 
@@ -429,6 +473,86 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetFileTransferCancelledDelegate(IosOnFileTransferCancelledDelegate callback);
 #endif
 
+        public delegate void OnReceiveStreamDelegate(string endpointId, long payloadId, Stream payload);
+        public event OnReceiveStreamDelegate OnReceiveStream;
+
+        public delegate void OnReceiveStreamDataDelegate(string endpointId, long payloadId, byte[] payload);
+        public event OnReceiveStreamDataDelegate OnReceiveStreamData;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnReceiveStreamDelegate(string endpointId, long payloadId, int payloadLength, IntPtr payload);
+        [AOT.MonoPInvokeCallback(typeof(IosOnReceiveStreamDelegate))]
+        private static void IosOnReceiveStream(string endpointId, long payloadId, int payloadLength, IntPtr payload)
+        {
+            var mangedData = new byte[payloadLength];
+            Marshal.Copy(payload, mangedData, 0, payloadLength);
+            Instance.asyncOperation.Post(o =>
+            {
+                Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]);
+                var payloadId = (long)((object[])o)[1];
+                if (Instance.streamPayloadDictionary.ContainsValue(payloadId))
+                {
+                    foreach (var keyValue in Instance.streamPayloadDictionary)
+                    {
+                        if (keyValue.Value == payloadId)
+                        {
+                            keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    var stream = new PairedStream();
+                    stream.OutputStream.Write((byte[])((object[])o)[2]);
+                    Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
+                    Instance.streamPayloadDictionary.Add(stream, payloadId);
+                }
+            }, new object[] { endpointId, payloadId, mangedData });
+            Marshal.FreeHGlobal(payload);
+        }
+        [DllImport(DllName)]
+        private static extern void SetReceiveStreamDelegate(IosOnReceiveStreamDelegate callback);
+#endif
+
+        public delegate void OnStreamTransferCompleteDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferCompleteDelegate OnStreamTransferComplete;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferCompleteDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferCompleteDelegate))]
+        private static void IosOnStreamTransferComplete(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferCompleteDelegate(IosOnStreamTransferCompleteDelegate callback);
+#endif
+
+        public delegate void OnStreamTransferFailedDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferFailedDelegate OnStreamTransferFailed;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferFailedDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferFailedDelegate))]
+        private static void IosOnStreamTransferFailed(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferFailed?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferFailedDelegate(IosOnStreamTransferFailedDelegate callback);
+#endif
+
+        public delegate void OnStreamTransferCancelledDelegate(string endpointId, long payloadId);
+        public event OnStreamTransferCancelledDelegate OnStreamTransferCancelled;
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        private delegate void IosOnStreamTransferCancelledDelegate(string endpointId, long payloadId);
+        [AOT.MonoPInvokeCallback(typeof(IosOnStreamTransferCancelledDelegate))]
+        private static void IosOnStreamTransferCancelled(string endpointId, long payloadId)
+        {
+            Instance.asyncOperation.Post(o => Instance.OnStreamTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] { endpointId, payloadId });
+        }
+        [DllImport(DllName)]
+        private static extern void SetStreamTransferCancelledDelegate(IosOnStreamTransferCancelledDelegate callback);
+#endif
+
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         [DllImport(DllName)]
         private static extern void IosInitialize();
@@ -480,6 +604,15 @@ namespace jp.kshoji.unity.nearby
 
         [DllImport(DllName)]
         private static extern long IosSendFileToEndpoint(string path, string fileName, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern long IosSendStream(byte[] data, int length);
+
+        [DllImport(DllName)]
+        private static extern long IosSendStreamToEndpoint(byte[] data, int length, string endpointId);
+
+        [DllImport(DllName)]
+        private static extern void IosSendStreamUpdate(byte[] data, int length, long payloadId);
 
         [DllImport(DllName)]
         private static extern long IosCancelPayload(long payloadId);
@@ -583,6 +716,10 @@ namespace jp.kshoji.unity.nearby
             SetFileTransferUpdateDelegate(IosOnFileTransferUpdate);
             SetFileTransferFailedDelegate(IosOnFileTransferFailed);
             SetFileTransferCancelledDelegate(IosOnFileTransferCancelled);
+            SetReceiveStreamDelegate(IosOnReceiveStream);
+            SetStreamTransferCompleteDelegate(IosOnStreamTransferComplete);
+            SetStreamTransferFailedDelegate(IosOnStreamTransferFailed);
+            SetStreamTransferCancelledDelegate(IosOnStreamTransferCancelled);
             IosInitialize();
             initializeCompletedAction?.Invoke();
 #else
@@ -1024,6 +1161,135 @@ namespace jp.kshoji.unity.nearby
             // platform not supported: do nothing
             Debug.Log($"Platform {Application.platform} is not supported.");
             return 0;
+#endif
+        }
+
+        /// <summary>
+        /// Starts sending stream payload
+        /// </summary>
+        /// <param name="endpointId">the endpoint ID, send to the all endpoints if null specified</param>
+        /// <returns>the started stream to write data</returns>
+        public Stream StartSendStream(string endpointId = null)
+        {
+            IEnumerator SendStreamCoroutine(PairedStream stream, string endpointId = null)
+            {
+                var inputStream = stream.InputStream;
+                var buffer = new byte[1024];
+                while (true)
+                {
+                    int payloadLength;
+                    try
+                    {
+                        payloadLength = inputStream.Read(buffer, 0, buffer.Length);
+                    }
+                    catch (ObjectDisposedException e)
+                    {
+                        // Stream closed
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, new byte []{ });
+                            streamPayloadDictionary.Remove(stream);
+                        }
+                        Debug.LogException(e);
+                        yield break;
+                    }
+                    if (payloadLength > 0)
+                    {
+                        var payloadBytes = new byte[payloadLength];
+                        Array.Copy(buffer, 0, payloadBytes, 0, payloadLength);
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, payloadBytes);
+                        }
+                        else
+                        {
+                            var payloadId = SendStream(payloadBytes, endpointId);
+                            if (payloadId != 0)
+                            {
+                                streamPayloadDictionary.Add(stream, payloadId);
+                            }
+                        }
+                    }
+                    else if (payloadLength == -1)
+                    {
+                        // Stream closed
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, new byte []{ });
+                            streamPayloadDictionary.Remove(stream);
+                        }
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+            }
+
+            var stream = new PairedStream();
+            StartCoroutine(SendStreamCoroutine(stream, endpointId));
+            return stream.OutputStream;
+        }
+
+        private long SendStream(byte[] payloadBytes, string endpointId = null)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            long result;
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            if (endpointId == null)
+            {
+                result = connectionsManager.Call<long>("sendStream", payloadBytes);
+            }
+            else
+            {
+                result = connectionsManager.Call<long>("sendStream", payloadBytes, endpointId);
+            }
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+            return result;
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            long result;
+            if (endpointId == null)
+            {
+                result = IosSendStream(payloadBytes, payloadBytes.Length);
+            }
+            else
+            {
+                result = IosSendStreamToEndpoint(payloadBytes, payloadBytes.Length, endpointId);
+            }
+            return result;
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
+            return 0;
+#endif
+        }
+
+        private void SendStream(long payloadId, byte[] payloadBytes)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            long result;
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.AttachCurrentThread();
+            }
+            connectionsManager.Call("sendStream", payloadId, payloadBytes);
+            if (Thread.CurrentThread != mainThread)
+            {
+                AndroidJNI.DetachCurrentThread();
+            }
+#elif UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+            IosSendStreamUpdate(payloadBytes, payloadBytes.Length, payloadId);
+#else
+            // platform not supported: do nothing
+            Debug.Log($"Platform {Application.platform} is not supported.");
 #endif
         }
 
