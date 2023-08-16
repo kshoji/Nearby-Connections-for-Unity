@@ -248,12 +248,12 @@ namespace jp.kshoji.unity.nearby.sample
                     }
 
                     sendText = GUILayout.TextField(sendText);
-                    if (GUILayout.Button("Send") && !string.IsNullOrEmpty(sendText))
+                    if (GUILayout.Button("Send with Bytes") && !string.IsNullOrEmpty(sendText))
                     {
                         NearbyConnectionsManager.Instance.Send(Encoding.UTF8.GetBytes(sendText));
                     }
 
-                    if (GUILayout.Button("Send Stream"))
+                    if (GUILayout.Button("Send with Stream"))
                     {
                         var sendData = string.IsNullOrEmpty(sendText) ? null : Encoding.UTF8.GetBytes(sendText);
                         if (sendStreamPayload == null)
@@ -263,7 +263,7 @@ namespace jp.kshoji.unity.nearby.sample
                             {
                                 return;
                             }
-                            sendStreamPayload = NearbyConnectionsManager.Instance.StartStream();
+                            sendStreamPayload = NearbyConnectionsManager.Instance.StartSendStream();
                             sendStreamPayload.Write(sendData);
                             receivedMessages.Add($"StartStream payload: {sendStreamPayload}");
                         }
@@ -282,7 +282,17 @@ namespace jp.kshoji.unity.nearby.sample
                         }
                     }
 
-                    if (GUILayout.Button("Send File"))
+                    if (GUILayout.Button("Close Stream"))
+                    {
+                        if (sendStreamPayload != null)
+                        {
+                            sendStreamPayload.Close();
+                            sendStreamPayload.Dispose();
+                            sendStreamPayload = null;
+                        }
+                    }
+
+                    if (GUILayout.Button("Send a File"))
                     {
                         IEnumerator GetFileContentsAndSend(string filePath)
                         {

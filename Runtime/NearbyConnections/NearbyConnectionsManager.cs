@@ -6,12 +6,16 @@ using System.Threading;
 using UnityEditor;
 #endif
 using UnityEngine;
+#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
 using System.ComponentModel;
+#endif
 using System.IO;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
 using System.Runtime.InteropServices;
 #endif
+#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
 using AsyncOperation = System.ComponentModel.AsyncOperation;
+#endif
 
 namespace jp.kshoji.unity.nearby
 {
@@ -25,9 +29,13 @@ namespace jp.kshoji.unity.nearby
         private AndroidJavaObject connectionsManager;
         private bool permissionRequested;
 #endif
+#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
         private AsyncOperation asyncOperation;
+#endif
 
+#if UNITY_ANDROID && !UNITY_EDITOR
         private Action onInitializeCompleted;
+#endif
 
         private readonly HashSet<string> discoveredEndpoints = new HashSet<string>();
         private readonly HashSet<string> pendingConnections = new HashSet<string>();
@@ -43,7 +51,9 @@ namespace jp.kshoji.unity.nearby
         private static readonly Lazy<NearbyConnectionsManager> lazyInstance = new Lazy<NearbyConnectionsManager>(() =>
         {
             var instance = new GameObject("NearbyConnectionsManager").AddComponent<NearbyConnectionsManager>();
+#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
             instance.asyncOperation = AsyncOperationManager.CreateOperation(null);
+#endif
 
 #if UNITY_EDITOR
             if (EditorApplication.isPlaying)
@@ -1159,7 +1169,7 @@ namespace jp.kshoji.unity.nearby
         /// </summary>
         /// <param name="endpointId">the endpoint ID, send to the all endpoints if null specified</param>
         /// <returns>the started stream to write data</returns>
-        public Stream StartStream(string endpointId = null)
+        public Stream StartSendStream(string endpointId = null)
         {
             IEnumerator SendStreamCoroutine(PairedStream stream, string endpointId = null)
             {
