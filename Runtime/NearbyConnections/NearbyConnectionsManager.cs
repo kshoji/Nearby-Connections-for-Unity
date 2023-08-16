@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 #if UNITY_EDITOR
@@ -31,6 +32,7 @@ namespace jp.kshoji.unity.nearby
         private readonly HashSet<string> discoveredEndpoints = new HashSet<string>();
         private readonly HashSet<string> pendingConnections = new HashSet<string>();
         private readonly HashSet<string> establishedConnections = new HashSet<string>();
+        private readonly Dictionary<PairedStream, long> streamPayloadDictionary = new Dictionary<PairedStream, long>();
 
         /// <summary>
         /// Get an instance<br />
@@ -361,7 +363,29 @@ namespace jp.kshoji.unity.nearby
 				=> Instance.asyncOperation.Post(o => Instance.OnFileTransferCancelled?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
 
             void onReceiveStream(string endpointId, long id, byte[] payload)
-                => Instance.asyncOperation.Post(o => Instance.OnReceiveStream?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] {endpointId, id, payload});
+                => Instance.asyncOperation.Post(o =>
+                {
+                    Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]);
+                    var payloadId = (long)((object[])o)[1];
+                    if (Instance.streamPayloadDictionary.ContainsValue(payloadId))
+                    {
+                        foreach (var keyValue in Instance.streamPayloadDictionary)
+                        {
+                            if (keyValue.Value == payloadId)
+                            {
+                                keyValue.Key.WriterStream.Write((byte[])((object[])o)[2]);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var stream = new LoopbackStream();
+                        stream.WriterStream.Write((byte[])((object[])o)[2]);
+                        Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.ReaderStream);
+                        Instance.streamPayloadDictionary.Add(stream, payloadId);
+                    }
+                }, new object[] {endpointId, id, payload});
             void onStreamTransferComplete(string endpointId, long id)
                 => Instance.asyncOperation.Post(o => Instance.OnStreamTransferComplete?.Invoke((string)((object[])o)[0], (long)((object[])o)[1]), new object[] {endpointId, id});
             void onStreamTransferFailed(string endpointId, long id)
@@ -439,8 +463,11 @@ namespace jp.kshoji.unity.nearby
         private static extern void SetFileTransferCancelledDelegate(IosOnFileTransferCancelledDelegate callback);
 #endif
 
-        public delegate void OnReceiveStreamDelegate(string endpointId, long payloadId, byte[] payload);
+        public delegate void OnReceiveStreamDelegate(string endpointId, long payloadId, Stream payload);
         public event OnReceiveStreamDelegate OnReceiveStream;
+
+        public delegate void OnReceiveStreamDataDelegate(string endpointId, long payloadId, byte[] payload);
+        public event OnReceiveStreamDataDelegate OnReceiveStreamData;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         private delegate void IosOnReceiveStreamDelegate(string endpointId, long payloadId, int payloadLength, IntPtr payload);
         [AOT.MonoPInvokeCallback(typeof(IosOnReceiveStreamDelegate))]
@@ -448,7 +475,29 @@ namespace jp.kshoji.unity.nearby
         {
             var mangedData = new byte[payloadLength];
             Marshal.Copy(payload, mangedData, 0, payloadLength);
-            Instance.asyncOperation.Post(o => Instance.OnReceiveStream?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]), new object[] { endpointId, payloadId, mangedData });
+            Instance.asyncOperation.Post(o =>
+            {
+                Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]);
+                var payloadId = (long)((object[])o)[1];
+                if (Instance.streamPayloadDictionary.ContainsValue(payloadId))
+                {
+                    foreach (var keyValue in Instance.streamPayloadDictionary)
+                    {
+                        if (keyValue.Value == payloadId)
+                        {
+                            keyValue.Key.WriterStream.Write((byte[])((object[])o)[2]);
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    var stream = new LoopbackStream();
+                    stream.WriterStream.Write((byte[])((object[])o)[2]);
+                    Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.ReaderStream);
+                    Instance.streamPayloadDictionary.Add(stream, payloadId);
+                }
+            }, new object[] { endpointId, payloadId, mangedData });
             Marshal.FreeHGlobal(payload);
         }
         [DllImport(DllName)]
@@ -1105,7 +1154,76 @@ namespace jp.kshoji.unity.nearby
 #endif
         }
 
-        public long SendStream(byte[] payloadBytes, string endpointId = null)
+        /// <summary>
+        /// Starts sending stream payload
+        /// </summary>
+        /// <param name="endpointId">the endpoint ID, send to the all endpoints if null specified</param>
+        /// <returns>the started stream to write data</returns>
+        public Stream StartStream(string endpointId = null)
+        {
+            IEnumerator SendStreamCoroutine(PairedStream stream, string endpointId = null)
+            {
+                var inputStream = stream.InputStream;
+                var buffer = new byte[1024];
+                while (true)
+                {
+                    int payloadLength;
+                    try
+                    {
+                        payloadLength = inputStream.Read(buffer, 0, buffer.Length);
+                    }
+                    catch (ObjectDisposedException e)
+                    {
+                        // Stream closed
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, new byte []{ });
+                            streamPayloadDictionary.Remove(stream);
+                        }
+                        Debug.LogException(e);
+                        yield break;
+                    }
+                    if (payloadLength > 0)
+                    {
+                        var payloadBytes = new byte[payloadLength];
+                        Array.Copy(buffer, 0, payloadBytes, 0, payloadLength);
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, payloadBytes);
+                        }
+                        else
+                        {
+                            var payloadId = SendStream(payloadBytes, endpointId);
+                            if (payloadId != 0)
+                            {
+                                streamPayloadDictionary.Add(stream, payloadId);
+                            }
+                        }
+                    }
+                    else if (payloadLength == -1)
+                    {
+                        // Stream closed
+                        if (streamPayloadDictionary.ContainsKey(stream))
+                        {
+                            var payloadId = streamPayloadDictionary[stream];
+                            SendStream(payloadId, new byte []{ });
+                            streamPayloadDictionary.Remove(stream);
+                        }
+                        yield break;
+                    }
+
+                    yield return null;
+                }
+            }
+
+            var stream = new PairedStream();
+            StartCoroutine(SendStreamCoroutine(stream, endpointId));
+            return stream.OutputStream;
+        }
+
+        private long SendStream(byte[] payloadBytes, string endpointId = null)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             long result;
@@ -1144,7 +1262,7 @@ namespace jp.kshoji.unity.nearby
 #endif
         }
 
-        public void SendStream(long payloadId, byte[] payloadBytes)
+        private void SendStream(long payloadId, byte[] payloadBytes)
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             long result;

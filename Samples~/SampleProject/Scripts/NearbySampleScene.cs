@@ -14,7 +14,8 @@ namespace jp.kshoji.unity.nearby.sample
         private const string ServiceID = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
         private static string LocalEndpointName = Guid.NewGuid().ToString();
         private static HashSet<long> sendFilePayloads = new HashSet<long>();
-        private static long? sendStreamPayload;
+        private static Stream sendStreamPayload;
+        private static Dictionary<long, Stream> readStreamPayloads = new Dictionary<long, Stream>();
 
         private void Awake()
         {
@@ -94,7 +95,41 @@ namespace jp.kshoji.unity.nearby.sample
 
             NearbyConnectionsManager.Instance.OnReceiveStream += (endpointId, payloadId, payload) =>
             {
-                receivedMessages.Add($"OnReceiveStream [{endpointId}]({payloadId}) {payload?.Length} bytes");
+                receivedMessages.Add($"OnReceiveStream [{endpointId}]({payloadId})");
+                readStreamPayloads.Add(payloadId, payload);
+            };
+
+            NearbyConnectionsManager.Instance.OnStreamTransferComplete += (endpointId, payloadId) =>
+            {
+                receivedMessages.Add($"OnStreamTransferComplete [{endpointId}]({payloadId})");
+                if (readStreamPayloads.ContainsKey(payloadId))
+                {
+                    readStreamPayloads[payloadId].Close();
+                    readStreamPayloads[payloadId].Dispose();
+                    readStreamPayloads.Remove(payloadId);
+                }
+            };
+
+            NearbyConnectionsManager.Instance.OnStreamTransferCancelled += (endpointId, payloadId) =>
+            {
+                receivedMessages.Add($"OnStreamTransferCancelled [{endpointId}]({payloadId})");
+                if (readStreamPayloads.ContainsKey(payloadId))
+                {
+                    readStreamPayloads[payloadId].Close();
+                    readStreamPayloads[payloadId].Dispose();
+                    readStreamPayloads.Remove(payloadId);
+                }
+            };
+
+            NearbyConnectionsManager.Instance.OnStreamTransferFailed += (endpointId, payloadId) =>
+            {
+                receivedMessages.Add($"OnStreamTransferFailed [{endpointId}]({payloadId})");
+                if (readStreamPayloads.ContainsKey(payloadId))
+                {
+                    readStreamPayloads[payloadId].Close();
+                    readStreamPayloads[payloadId].Dispose();
+                    readStreamPayloads.Remove(payloadId);
+                }
             };
 
             NearbyConnectionsManager.Instance.Initialize(() =>
@@ -124,11 +159,40 @@ namespace jp.kshoji.unity.nearby.sample
                 return;
             }
 
+            CheckReadStreams();
+
             GUIUtility.ScaleAroundPivot(new Vector2(guiScale, guiScale), Vector2.zero);
 
             receivedMessageWindowRect = GUILayout.Window(ReceivedMessageWindow, receivedMessageWindowRect, OnGUIWindow, "Received Messages");
             connectionWindowRect = GUILayout.Window(ConnectionWindow, connectionWindowRect, OnGUIWindow, "Nearby Connections");
-       }
+        }
+
+        private void CheckReadStreams()
+        {
+            var buffer = new byte[1024];
+            var closedStreams = new HashSet<long>();
+            foreach (var stream in readStreamPayloads)
+            {
+                var read = stream.Value.Read(buffer);
+                if (read > 0)
+                {
+                    var readBytes = new byte[read];
+                    Array.Copy(buffer, 0, readBytes, 0, read);
+                    receivedMessages.Add($"Stream received payloadId: {stream.Key}, data: {Encoding.UTF8.GetString(readBytes)} ({string.Join(", ", readBytes)})");
+                }
+                else if (read == -1)
+                {
+                    receivedMessages.Add($"Stream closed payloadId: {stream.Key}");
+                    stream.Value.Close();
+                    closedStreams.Add(stream.Key);
+                }
+            }
+
+            foreach (var closedStream in closedStreams)
+            {
+                readStreamPayloads.Remove(closedStream);
+            }
+        }
 
         private void OnGUIWindow(int id)
         {
@@ -192,26 +256,29 @@ namespace jp.kshoji.unity.nearby.sample
                     if (GUILayout.Button("Send Stream"))
                     {
                         var sendData = string.IsNullOrEmpty(sendText) ? null : Encoding.UTF8.GetBytes(sendText);
-                        if (sendStreamPayload.HasValue)
+                        if (sendStreamPayload == null)
                         {
+                            // new connection
                             if (sendData == null)
                             {
                                 return;
                             }
-
-                            // TODO replace with InputStream
-                            NearbyConnectionsManager.Instance.SendStream(sendStreamPayload.Value, sendData);
-                            receivedMessages.Add($"SendStream payloadId: {sendStreamPayload.Value}");
+                            sendStreamPayload = NearbyConnectionsManager.Instance.StartStream();
+                            sendStreamPayload.Write(sendData);
+                            receivedMessages.Add($"StartStream payload: {sendStreamPayload}");
                         }
                         else
                         {
-                            // TODO replace with InputStream
-                            sendStreamPayload = NearbyConnectionsManager.Instance.SendStream(sendData);
-                            receivedMessages.Add($"SendStream payloadId: {sendStreamPayload.Value}");
+                            // already connected
                             if (sendData == null)
                             {
+                                sendStreamPayload.Close();
+                                sendStreamPayload.Dispose();
                                 sendStreamPayload = null;
+                                return;
                             }
+
+                            sendStreamPayload.Write(sendData);
                         }
                     }
 
