@@ -6,14 +6,14 @@ using System.Threading;
 using UnityEditor;
 #endif
 using UnityEngine;
-#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
 using System.ComponentModel;
 #endif
 using System.IO;
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
 using System.Runtime.InteropServices;
 #endif
-#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
 using AsyncOperation = System.ComponentModel.AsyncOperation;
 #endif
 
@@ -29,7 +29,7 @@ namespace jp.kshoji.unity.nearby
         private AndroidJavaObject connectionsManager;
         private bool permissionRequested;
 #endif
-#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
         private AsyncOperation asyncOperation;
 #endif
 
@@ -51,7 +51,7 @@ namespace jp.kshoji.unity.nearby
         private static readonly Lazy<NearbyConnectionsManager> lazyInstance = new Lazy<NearbyConnectionsManager>(() =>
         {
             var instance = new GameObject("NearbyConnectionsManager").AddComponent<NearbyConnectionsManager>();
-#if (UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID) && !UNITY_EDITOR
+#if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX || UNITY_ANDROID
             instance.asyncOperation = AsyncOperationManager.CreateOperation(null);
 #endif
 
