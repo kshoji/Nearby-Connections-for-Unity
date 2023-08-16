@@ -373,16 +373,16 @@ namespace jp.kshoji.unity.nearby
                         {
                             if (keyValue.Value == payloadId)
                             {
-                                keyValue.Key.WriterStream.Write((byte[])((object[])o)[2]);
+                                keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
                                 break;
                             }
                         }
                     }
                     else
                     {
-                        var stream = new LoopbackStream();
-                        stream.WriterStream.Write((byte[])((object[])o)[2]);
-                        Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.ReaderStream);
+                        var stream = new PairedStream();
+                        stream.OutputStream.Write((byte[])((object[])o)[2]);
+                        Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
                         Instance.streamPayloadDictionary.Add(stream, payloadId);
                     }
                 }, new object[] {endpointId, id, payload});
@@ -485,16 +485,16 @@ namespace jp.kshoji.unity.nearby
                     {
                         if (keyValue.Value == payloadId)
                         {
-                            keyValue.Key.WriterStream.Write((byte[])((object[])o)[2]);
+                            keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
                             break;
                         }
                     }
                 }
                 else
                 {
-                    var stream = new LoopbackStream();
-                    stream.WriterStream.Write((byte[])((object[])o)[2]);
-                    Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.ReaderStream);
+                    var stream = new PairedStream();
+                    stream.OutputStream.Write((byte[])((object[])o)[2]);
+                    Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
                     Instance.streamPayloadDictionary.Add(stream, payloadId);
                 }
             }, new object[] { endpointId, payloadId, mangedData });
