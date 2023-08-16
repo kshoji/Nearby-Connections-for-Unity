@@ -180,6 +180,42 @@ OnFileTransferCancelledDelegate fileTransferCancelledCallback;
     }
 }
 
+typedef void ( __cdecl *OnReceiveStreamDelegate )( const char*, long, int, unsigned char* );
+OnReceiveStreamDelegate receiveStreamCallback;
+- (void)onReceiveStreamWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId streamData:(NSArray<NSNumber *> * _Nonnull)payload {
+    if (receiveStreamCallback) {
+        unsigned char* bytes = (unsigned char*)calloc(payload.count, sizeof(unsigned char));
+        [payload enumerateObjectsUsingBlock:^(NSNumber* number, NSUInteger index, BOOL* stop){
+            bytes[index] = number.unsignedCharValue;
+        }];
+        receiveStreamCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, (int)payload.count, bytes);
+    }
+}
+
+typedef void ( __cdecl *OnStreamTransferCompleteDelegate )( const char*, long );
+OnStreamTransferCompleteDelegate streamTransferCompleteCallback;
+- (void)onStreamTransferCompleteWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (streamTransferCompleteCallback) {
+        streamTransferCompleteCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
+typedef void ( __cdecl *OnStreamTransferFailedDelegate )( const char*, long );
+OnStreamTransferFailedDelegate streamTransferFailedCallback;
+- (void)onStreamTransferFailedWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (streamTransferFailedCallback) {
+        streamTransferFailedCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
+typedef void ( __cdecl *OnStreamTransferCancelledDelegate )( const char*, long );
+OnStreamTransferCancelledDelegate streamTransferCancelledCallback;
+- (void)onStreamTransferCancelledWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId {
+    if (streamTransferCancelledCallback) {
+        streamTransferCancelledCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId);
+    }
+}
+
 @end
 
 #ifdef __cplusplus
@@ -260,6 +296,18 @@ extern "C" {
         return [NearbyUnityPlugin.shared sendWithUrl:[NSURL URLWithString: [NSString stringWithUTF8String: url]] fileName:[NSString stringWithUTF8String: fileName] endpointID:[NSString stringWithUTF8String: endpointId]];
     }
 
+    long IosSendStream(const unsigned char* data, int length) {
+        return [NearbyUnityPlugin.shared sendWithData:data count:length];
+    }
+
+    void IosSendStreamUpdate(const unsigned char* data, int length, long payloadId) {
+        [NearbyUnityPlugin.shared sendWithData:data count:length payloadID:payloadId];
+    }
+
+    long IosSendStreamToEndpoint(const unsigned char* data, int length, const char *endpointId) {
+        return [NearbyUnityPlugin.shared sendWithData:data count:length endpointID:[NSString stringWithUTF8String: endpointId]];
+    }
+
     void IosCancelPayloadToEndpoint(long payloadId, const char *endpointId) {
         [NearbyUnityPlugin.shared cancelWithEndpointID:[NSString stringWithUTF8String: endpointId] payloadID:payloadId];
     }
@@ -327,6 +375,22 @@ extern "C" {
 
     void SetFileTransferCancelledDelegate(OnFileTransferCancelledDelegate callback) {
         fileTransferCancelledCallback = callback;
+    }
+
+    void SetReceiveStreamDelegate(OnReceiveStreamDelegate callback) {
+        receiveStreamCallback = callback;
+    }
+
+    void SetStreamTransferCompleteDelegate(OnStreamTransferCompleteDelegate callback) {
+        streamTransferCompleteCallback = callback;
+    }
+
+    void SetStreamTransferFailedDelegate(OnStreamTransferFailedDelegate callback) {
+        streamTransferFailedCallback = callback;
+    }
+
+    void SetStreamTransferCancelledDelegate(OnStreamTransferCancelledDelegate callback) {
+        streamTransferCancelledCallback = callback;
     }
 
 #ifdef __cplusplus
