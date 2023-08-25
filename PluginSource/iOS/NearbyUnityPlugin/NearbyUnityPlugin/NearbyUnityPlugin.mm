@@ -147,12 +147,13 @@ OnReceiveDelegate receiveCallback;
     }
 }
 
-typedef void ( __cdecl *OnFileTransferCompleteDelegate )( const char*, long, const char* );
+typedef void ( __cdecl *OnFileTransferCompleteDelegate )( const char*, long, const char*, const char* );
 OnFileTransferCompleteDelegate fileTransferCompleteCallback;
-- (void)onFileTransferCompleteWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId fileName:(NSString *)fileName {
+- (void)onFileTransferCompleteWithEndpointId:(NSString * _Nonnull)endpointId id:(int64_t)payloadId localUrl:(NSString *)localUrl fileName:(NSString *)fileName {
     if (fileTransferCompleteCallback) {
-        const char* bytes = fileName != nil ? [fileName cStringUsingEncoding:kCFStringEncodingUTF8] : NULL;
-        fileTransferCompleteCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, bytes);
+        const char* localUrlBytes = localUrl != nil ? [localUrl cStringUsingEncoding:kCFStringEncodingUTF8] : NULL;
+        const char* fileNameBytes = fileName != nil ? [fileName cStringUsingEncoding:kCFStringEncodingUTF8] : NULL;
+        fileTransferCompleteCallback([endpointId cStringUsingEncoding:NSUTF8StringEncoding], payloadId, localUrlBytes, fileNameBytes);
     }
 }
 

@@ -31,7 +31,7 @@ import NearbyConnections
     func onReceive(endpointId: String, id: Int64, payload: [UInt8]);
 
     // File
-    func onFileTransferComplete(endpointId: String, id: Int64, fileName: String?);
+    func onFileTransferComplete(endpointId: String, id: Int64, localUrl: String?, fileName: String?);
     func onFileTransferUpdate(endpointId: String, id: Int64, bytesTransferred: Int64, totalSize: Int64);
     func onFileTransferFailed(endpointId: String, id: Int64);
     func onFileTransferCancelled(endpointId: String, id: Int64);
@@ -51,6 +51,7 @@ struct Payload: Identifiable {
     let cancellationToken: CancellationToken?
     // File
     let localURL: URL?
+    let fileName: String?
     // Stream
     let outputStream: OutputStream?
     var inputStream: InputStream?
@@ -283,7 +284,8 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil,
+            localURL: url,
+            fileName: fileName,
             outputStream: nil,
             inputStream: nil
         )
@@ -314,7 +316,8 @@ struct DiscoveredEndpoint: Identifiable {
             status: .inProgress(Progress()),
             isIncoming: false,
             cancellationToken: token,
-            localURL: nil,
+            localURL: url,
+            fileName: fileName,
             outputStream: nil,
             inputStream: nil
         )
@@ -350,6 +353,7 @@ struct DiscoveredEndpoint: Identifiable {
             isIncoming: false,
             cancellationToken: token,
             localURL: nil,
+            fileName: nil,
             outputStream: outputStream,
             inputStream: inputStream
         )
@@ -428,6 +432,7 @@ struct DiscoveredEndpoint: Identifiable {
             isIncoming: false,
             cancellationToken: token,
             localURL: nil,
+            fileName: nil,
             outputStream: outputStream,
             inputStream: inputStream
         )
@@ -489,6 +494,7 @@ struct DiscoveredEndpoint: Identifiable {
             isIncoming: false,
             cancellationToken: token,
             localURL: nil,
+            fileName: nil,
             outputStream: nil,
             inputStream: nil
         )
@@ -516,6 +522,7 @@ struct DiscoveredEndpoint: Identifiable {
             isIncoming: false,
             cancellationToken: token,
             localURL: nil,
+            fileName: nil,
             outputStream: nil,
             inputStream: nil
         )
@@ -607,6 +614,7 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             isIncoming: true,
             cancellationToken: nil,
             localURL: nil,
+            fileName: nil,
             outputStream: nil,
             inputStream: nil
         )
@@ -636,6 +644,7 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
                 isIncoming: true,
                 cancellationToken: token,
                 localURL: nil,
+                fileName: nil,
                 outputStream: nil,
                 inputStream: stream
             )
@@ -708,6 +717,7 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
             isIncoming: true,
             cancellationToken: token,
             localURL: localURL,
+            fileName: name,
             outputStream: nil,
             inputStream: nil
         )
@@ -730,35 +740,37 @@ extension NearbyUnityPlugin: ConnectionManagerDelegate {
         case .success:
             payload.status = .success
             if (payload.type == .file) {
-                if (payload.isIncoming) {
 #if DEBUG
-                    print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), localURL: \(payload.localURL!.absoluteString)")
+                print("connectionManager didReceiveTransferUpdate payloadID: \(payloadID), endpointID: \(endpointID), localURL: \(payload.localURL!.absoluteString), fileName: \(payload.fileName!)")
 #endif
-                    transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, fileName: payload.localURL!.absoluteString)
-                } else {
-                    transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, fileName: nil)
-                }
+                transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, localUrl: payload.localURL!.absoluteString, fileName: payload.fileName!)
             } else if (payload.type == .stream) {
                 transmissionEventDelegate?.onStreamTransferComplete(endpointId: endpointID, id: payloadID)
             }
         case .canceled:
-            connections[connectionIndex].payloads[payloadIndex].status = .canceled
+            payload.status = .canceled
             if (payload.type == .file) {
                 transmissionEventDelegate?.onFileTransferCancelled(endpointId: endpointID, id: payloadID)
             } else if (payload.type == .stream) {
                 transmissionEventDelegate?.onStreamTransferCancelled(endpointId: endpointID, id: payloadID)
             }
         case .failure:
-            connections[connectionIndex].payloads[payloadIndex].status = .failure
+            payload.status = .failure
             if (payload.type == .file) {
                 transmissionEventDelegate?.onFileTransferFailed(endpointId: endpointID, id: payloadID)
             } else if (payload.type == .stream) {
                 transmissionEventDelegate?.onStreamTransferFailed(endpointId: endpointID, id: payloadID)
             }
         case let .progress(progress):
-            connections[connectionIndex].payloads[payloadIndex].status = .inProgress(progress)
+            payload.status = .inProgress(progress)
             if (payload.type == .file) {
-                transmissionEventDelegate?.onFileTransferUpdate(endpointId: endpointID, id: payloadID, bytesTransferred: progress.completedUnitCount, totalSize: progress.totalUnitCount)
+                if (progress.totalUnitCount == 0) {
+                    // finished on this update
+                    payload.status = .success
+                    transmissionEventDelegate?.onFileTransferComplete(endpointId: endpointID, id: payloadID, localUrl: payload.localURL!.absoluteString, fileName: payload.fileName!)
+                } else {
+                    transmissionEventDelegate?.onFileTransferUpdate(endpointId: endpointID, id: payloadID, bytesTransferred: progress.completedUnitCount, totalSize: progress.totalUnitCount)
+                }
             } else if (payload.type == .stream) {
                 if (payload.isIncoming) {
                     readStreamAndCallback(endpointID: endpointID, payload: payload)
