@@ -68,19 +68,19 @@ namespace jp.kshoji.unity.nearby.sample
             NearbyConnectionsManager.Instance.OnReceive += (endpointId, payloadId, payload) =>
             {
                 Debug.Log($"OnReceive id: {endpointId}, l: {payloadId}, payload: {string.Join(", ", payload)}");
-                receivedMessages.Add($"OnReceive [{endpointId}]({payloadId}): {Encoding.UTF8.GetString(payload)}");
+                receivedMessages.Add($"OnReceive id: {endpointId}, l: {payloadId}, payload: {Encoding.UTF8.GetString(payload)}");
             };
 
-            NearbyConnectionsManager.Instance.OnFileTransferComplete += (endpointId, payloadId, fileName) =>
+            NearbyConnectionsManager.Instance.OnFileTransferComplete += (endpointId, payloadId, localUrl, fileName) =>
             {
-                Debug.Log($"OnFileTransferComplete id: {endpointId}, l: {payloadId}, fileName: {fileName}");
-                receivedMessages.Add($"OnFileTransferComplete [{endpointId}]({payloadId}): {fileName}");
+                Debug.Log($"OnFileTransferComplete id: {endpointId}, l: {payloadId}, localUrl: {localUrl}, fileName: {fileName}");
+                receivedMessages.Add($"OnFileTransferComplete id: {endpointId}, l: {payloadId}, localUrl: {localUrl}, fileName: {fileName}");
             };
 
             NearbyConnectionsManager.Instance.OnFileTransferUpdate += (endpointId, payloadId, bytesTransferred, totalSize) =>
             {
                 // too much calling on transferring large file, so output logs only
-                Debug.Log($"OnFileTransferUpdate id: {endpointId}, l: {payloadId}, progress: {bytesTransferred} / {totalSize} ({bytesTransferred * 100 / totalSize} %)");
+                Debug.Log($"OnFileTransferUpdate id: {endpointId}, l: {payloadId}, progress: {bytesTransferred} / {totalSize})");
             };
 
             NearbyConnectionsManager.Instance.OnFileTransferCancelled += (endpointId, payloadId) =>
@@ -300,7 +300,7 @@ namespace jp.kshoji.unity.nearby.sample
                             yield return request.SendWebRequest();
                             if (request.result == UnityWebRequest.Result.Success)
                             {
-                                var tempFileName = Path.GetTempFileName();
+                                var tempFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
                                 using var fileStream = new FileStream(tempFileName, FileMode.OpenOrCreate);
                                 fileStream.Write(request.downloadHandler.data, 0, request.downloadHandler.data.Length);
  
