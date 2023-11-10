@@ -147,7 +147,7 @@ namespace jp.kshoji.unity.nearby.sample
         private Rect connectionWindowRect = new Rect(0, 0, 400, 400);
         private Rect receivedMessageWindowRect = new Rect(50, 50, 400, 400);
 
-        private Vector2 receiveMidiWindowScrollPosition;
+        private Vector2 receivedMessageWindowScrollPosition;
         private float guiScale;
         private bool autoAcceptConnection;
         private string sendText;
@@ -199,7 +199,7 @@ namespace jp.kshoji.unity.nearby.sample
             switch (id)
             {
                 case ReceivedMessageWindow:
-                    receiveMidiWindowScrollPosition = GUILayout.BeginScrollView(receiveMidiWindowScrollPosition);
+                    receivedMessageWindowScrollPosition = GUILayout.BeginScrollView(receivedMessageWindowScrollPosition);
                     GUILayout.Label("Received messages: ");
                     if (receivedMessages.Count > MaxNumberOfReceivedMessages)
                     {
