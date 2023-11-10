@@ -63,7 +63,7 @@ namespace jp.kshoji.unity.nearby.Editor
                 }
                 else
                 {
-                    UnityEngine.Debug.Log("asset is null!");
+                    UnityEngine.Debug.LogError("`NearbyConnections-ios-serviceIds.json` file not found! Please copy it from `Samples/SampleProject/Resources/NearbyConnections-ios-serviceIds.json` to `Assets/Resources` directory.");
                 }
 
                 if (infoPlistModified)
