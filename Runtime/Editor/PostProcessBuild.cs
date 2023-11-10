@@ -52,6 +52,16 @@ namespace jp.kshoji.unity.nearby.Editor
                 var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("NearbyConnections-ios-serviceIds");
                 if (asset != null)
                 {
+                    var assetPath = AssetDatabase.GetAssetPath(asset);
+                    if (assetPath == "Packages/jp.kshoji.unity.nearby/Runtime/Resources/NearbyConnections-ios-serviceIds.json")
+                    {
+                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please copy this file to the `Assets/Resources` directory, and modify this file to apply the Nearby Connections serviceId.");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please modify this file to apply the Nearby Connections serviceId.");
+                    }
+
                     // Read JSON file
                     var serviceIdJson = UnityEngine.JsonUtility.FromJson<ServiceId>(asset.text);
                     foreach (var serviceId in serviceIdJson.serviceIds)
@@ -63,7 +73,7 @@ namespace jp.kshoji.unity.nearby.Editor
                 }
                 else
                 {
-                    UnityEngine.Debug.LogError("`NearbyConnections-ios-serviceIds.json` file not found! Please copy it from `Samples/SampleProject/Resources/NearbyConnections-ios-serviceIds.json` to `Assets/Resources` directory.");
+                    UnityEngine.Debug.LogError("`NearbyConnections-ios-serviceIds.json` file not found! Please copy it from `Packages/Nearby Connections/Runtime/NearbyConnections/Resources/NearbyConnections-ios-serviceIds.json` to the `Assets/Resources` directory.");
                 }
 
                 if (infoPlistModified)
