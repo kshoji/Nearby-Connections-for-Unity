@@ -47,9 +47,34 @@ namespace jp.kshoji.unity.nearby.Editor
                     bonjourServices = infoPlist.root["NSBonjourServices"].AsArray();
                 }
 
-                // TODO: apply the all using serviceIds. This serviceId is used at NearbySampleScene class.
-                const string serviceId = "a7b90efd-f739-4a0a-842e-fba4f42ffb2e";
-                bonjourServices.AddString(ComputeBonjourService(serviceId));
+                // Apply the all using serviceIds. This serviceId is used at NearbySampleScene class.
+                // Read `Resources/NearbyConnections-ios-serviceIds.json` file.
+                var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("NearbyConnections-ios-serviceIds");
+                if (asset != null)
+                {
+                    var assetPath = AssetDatabase.GetAssetPath(asset);
+                    if (assetPath == "Packages/jp.kshoji.unity.nearby/Runtime/Resources/NearbyConnections-ios-serviceIds.json")
+                    {
+                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please copy this file to the `Assets/Resources` directory, and modify this file to apply the Nearby Connections serviceId.");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please modify this file to apply the Nearby Connections serviceId.");
+                    }
+
+                    // Read JSON file
+                    var serviceIdJson = UnityEngine.JsonUtility.FromJson<ServiceId>(asset.text);
+                    foreach (var serviceId in serviceIdJson.serviceIds)
+                    {
+                        UnityEngine.Debug.Log($"serviceId: {serviceId}");
+                        bonjourServices.AddString(ComputeBonjourService(serviceId));
+                        infoPlistModified = true;
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("`NearbyConnections-ios-serviceIds.json` file not found! Please copy it from `Packages/Nearby Connections/Runtime/NearbyConnections/Resources/NearbyConnections-ios-serviceIds.json` to the `Assets/Resources` directory.");
+                }
 
                 if (infoPlistModified)
                 {
@@ -69,6 +94,11 @@ namespace jp.kshoji.unity.nearby.Editor
             }
             return $"_{sb}._tcp";
         }
+    }
+
+    [System.Serializable]
+    public class ServiceId {
+        public string[] serviceIds;
     }
 #endif
 
