@@ -1243,11 +1243,11 @@ namespace jp.kshoji.unity.nearby
             }
             if (endpointId == null)
             {
-                result = connectionsManager.Call<long>("sendStream", payloadBytes);
+                result = connectionsManager.Call<long>("sendStream", Array.ConvertAll(payloadBytes, b => unchecked((sbyte)b)));
             }
             else
             {
-                result = connectionsManager.Call<long>("sendStream", payloadBytes, endpointId);
+                result = connectionsManager.Call<long>("sendStream", Array.ConvertAll(payloadBytes, b => unchecked((sbyte)b)), endpointId);
             }
             if (Thread.CurrentThread != mainThread)
             {
@@ -1280,7 +1280,7 @@ namespace jp.kshoji.unity.nearby
             {
                 AndroidJNI.AttachCurrentThread();
             }
-            connectionsManager.Call("sendStream", payloadId, payloadBytes);
+            connectionsManager.Call("sendStream", payloadId, Array.ConvertAll(payloadBytes, b => unchecked((sbyte)b)));
             if (Thread.CurrentThread != mainThread)
             {
                 AndroidJNI.DetachCurrentThread();
