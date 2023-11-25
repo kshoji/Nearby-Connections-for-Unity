@@ -699,6 +699,7 @@ public class ConnectionsManager {
         try {
             in.connect(out);
             out.write(streamBytes);
+            out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -724,6 +725,7 @@ public class ConnectionsManager {
         try {
             in.connect(out);
             out.write(streamBytes);
+            out.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -762,6 +764,7 @@ public class ConnectionsManager {
 
         try {
             streamTransfer.outputStream.write(streamBytes);
+            streamTransfer.outputStream.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
