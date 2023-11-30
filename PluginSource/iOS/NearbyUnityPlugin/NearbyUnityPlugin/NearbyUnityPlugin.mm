@@ -19,7 +19,7 @@
 
 @implementation NearbyConnectionsPlugin
 
-static NearbyConnectionsPlugin* instance;
+static NearbyConnectionsPlugin* nearbyInstance;
 
 // delegate methods
 typedef void ( __cdecl *OnAdvertisingFailedDelegate )();
@@ -223,14 +223,14 @@ OnStreamTransferCancelledDelegate streamTransferCancelledCallback;
 extern "C" {
 #endif
     void IosInitialize() {
-        if (!instance) {
-            instance = [[NearbyConnectionsPlugin alloc] init];
+        if (!nearbyInstance) {
+            nearbyInstance = [[NearbyConnectionsPlugin alloc] init];
         }
 
-        NearbyUnityPlugin.shared.advertisingEventDelegate = instance;
-        NearbyUnityPlugin.shared.connectionEventDelegate = instance;
-        NearbyUnityPlugin.shared.discoveryEventDelegate = instance;
-        NearbyUnityPlugin.shared.transmissionEventDelegate = instance;
+        NearbyUnityPlugin.shared.advertisingEventDelegate = nearbyInstance;
+        NearbyUnityPlugin.shared.connectionEventDelegate = nearbyInstance;
+        NearbyUnityPlugin.shared.discoveryEventDelegate = nearbyInstance;
+        NearbyUnityPlugin.shared.transmissionEventDelegate = nearbyInstance;
     }
 
     void IosStartAdvertising(const char *localEndpointName, const char *serviceId, int strategy) {
