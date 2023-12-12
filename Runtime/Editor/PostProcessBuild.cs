@@ -49,26 +49,34 @@ namespace jp.kshoji.unity.nearby.Editor
 
                 // Apply the all using serviceIds. This serviceId is used at NearbySampleScene class.
                 // Read `Resources/NearbyConnections-ios-serviceIds.json` file.
-                var asset = UnityEngine.Resources.Load<UnityEngine.TextAsset>("NearbyConnections-ios-serviceIds");
-                if (asset != null)
+                var assets = UnityEngine.Resources.LoadAll("NearbyConnections-ios-serviceIds", typeof(UnityEngine.TextAsset));
+                if (assets != null && assets.Length > 0)
                 {
-                    var assetPath = AssetDatabase.GetAssetPath(asset);
-                    if (assetPath == "Packages/jp.kshoji.unity.nearby/Runtime/Resources/NearbyConnections-ios-serviceIds.json")
+                    foreach (var a in assets)
                     {
-                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please copy this file to the `Assets/Resources` directory, and modify this file to apply the Nearby Connections serviceId.");
-                    }
-                    else
-                    {
-                        UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please modify this file to apply the Nearby Connections serviceId.");
-                    }
+                        var asset = a as UnityEngine.TextAsset;
+                        if (asset == null)
+                        {
+                            continue;
+                        }
+                        var assetPath = AssetDatabase.GetAssetPath(asset);
+                        if (assetPath == "Packages/jp.kshoji.unity.nearby/Runtime/NearbyConnections/Resources/NearbyConnections-ios-serviceIds.json")
+                        {
+                            UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please copy this file to the `Assets/Resources` directory, and modify this file to apply the Nearby Connections serviceId.");
+                        }
+                        else
+                        {
+                            UnityEngine.Debug.Log($"Using the setting file: {assetPath}, Please modify this file to apply the Nearby Connections serviceId.");
+                        }
 
-                    // Read JSON file
-                    var serviceIdJson = UnityEngine.JsonUtility.FromJson<ServiceId>(asset.text);
-                    foreach (var serviceId in serviceIdJson.serviceIds)
-                    {
-                        UnityEngine.Debug.Log($"serviceId: {serviceId}");
-                        bonjourServices.AddString(ComputeBonjourService(serviceId));
-                        infoPlistModified = true;
+                        // Read JSON file
+                        var serviceIdJson = UnityEngine.JsonUtility.FromJson<ServiceId>(asset.text);
+                        foreach (var serviceId in serviceIdJson.serviceIds)
+                        {
+                            UnityEngine.Debug.Log($"Added serviceId: {serviceId}");
+                            bonjourServices.AddString(ComputeBonjourService(serviceId));
+                            infoPlistModified = true;
+                        }
                     }
                 }
                 else
