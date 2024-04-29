@@ -1,0 +1,94 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "jp.kshoji",
+    "module": "unity-nearby",
+    "version": "0.0.6",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.4"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "files": [
+        {
+          "name": "unity-nearby-0.0.6.aar",
+          "url": "unity-nearby-0.0.6.aar",
+          "size": 24283,
+          "sha512": "0e17386f6bf8037a571460b6909db4527d1992c48a4eb04458fc900362c451ecaf4c680c82ebbea0af2b184ed5eea16d202d3e2571c3994212782344b6e6b270",
+          "sha256": "aa0ee392b1cc5da5ef1c0e500c1c64ea339fb7d088d7fef8edf0405c5f5184a5",
+          "sha1": "2486c9b995250baec14f62931095fccb10a78808",
+          "md5": "fc38f713a3edbcbe6eb24371ed9c3a73"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "com.google.android.gms",
+          "module": "play-services-nearby",
+          "version": {
+            "requires": "19.2.0"
+          }
+        },
+        {
+          "group": "androidx.appcompat",
+          "module": "appcompat",
+          "version": {
+            "requires": "1.6.1"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "unity-nearby-0.0.6.aar",
+          "url": "unity-nearby-0.0.6.aar",
+          "size": 24283,
+          "sha512": "0e17386f6bf8037a571460b6909db4527d1992c48a4eb04458fc900362c451ecaf4c680c82ebbea0af2b184ed5eea16d202d3e2571c3994212782344b6e6b270",
+          "sha256": "aa0ee392b1cc5da5ef1c0e500c1c64ea339fb7d088d7fef8edf0405c5f5184a5",
+          "sha1": "2486c9b995250baec14f62931095fccb10a78808",
+          "md5": "fc38f713a3edbcbe6eb24371ed9c3a73"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "unity-nearby-0.0.6-sources.jar",
+          "url": "unity-nearby-0.0.6-sources.jar",
+          "size": 8765,
+          "sha512": "7bf47e8d70e405fef63586b7314eaeab10e1b467681e0b6a8f7e72046da591506838e6e572781013436d7a6d45a3fbc560c55fd757c21bd085d0600cfb671ed9",
+          "sha256": "afcb4daa2eac487cc53fabf21e73f46cc119e1c2b0c4a555b89e9a3d8c67c366",
+          "sha1": "9d2dba1fc745332d899643f61f7c9602285389eb",
+          "md5": "24d097659eb960595627529fced0583c"
+        }
+      ]
+    }
+  ]
+}
