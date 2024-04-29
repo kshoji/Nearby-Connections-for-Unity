@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this package will be documented in this file. 
 
+## [v0.0.6] - 2024-04-30
+
+* Add Android proguard configuration
+
 ## [v0.0.5] - 2023-11-25
 
 * Fix Android stream transfer
