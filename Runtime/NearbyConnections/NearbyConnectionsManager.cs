@@ -487,15 +487,16 @@ namespace jp.kshoji.unity.nearby
             Marshal.Copy(payload, mangedData, 0, payloadLength);
             Instance.asyncOperation.Post(o =>
             {
-                Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], (byte[])((object[])o)[2]);
-                var payloadId = (long)((object[])o)[1];
-                if (Instance.streamPayloadDictionary.ContainsValue(payloadId))
+                var payloadBytes = (byte[])((object[])o)[2];
+                Instance.OnReceiveStreamData?.Invoke((string)((object[])o)[0], (long)((object[])o)[1], payloadBytes);
+                var payloadIdValue = (long)((object[])o)[1];
+                if (Instance.streamPayloadDictionary.ContainsValue(payloadIdValue))
                 {
                     foreach (var keyValue in Instance.streamPayloadDictionary)
                     {
-                        if (keyValue.Value == payloadId)
+                        if (keyValue.Value == payloadIdValue)
                         {
-                            keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
+                            keyValue.Key.OutputStream.Write(payloadBytes, 0, payloadBytes.Length);
                             break;
                         }
                     }
@@ -503,9 +504,9 @@ namespace jp.kshoji.unity.nearby
                 else
                 {
                     var stream = new PairedStream();
-                    stream.OutputStream.Write((byte[])((object[])o)[2]);
+                    stream.OutputStream.Write(payloadBytes, 0, payloadBytes.Length);
                     Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
-                    Instance.streamPayloadDictionary.Add(stream, payloadId);
+                    Instance.streamPayloadDictionary.Add(stream, payloadIdValue);
                 }
             }, new object[] { endpointId, payloadId, mangedData });
             Marshal.FreeHGlobal(payload);
