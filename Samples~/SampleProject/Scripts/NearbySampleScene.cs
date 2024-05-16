@@ -173,7 +173,7 @@ namespace jp.kshoji.unity.nearby.sample
             var closedStreams = new HashSet<long>();
             foreach (var stream in readStreamPayloads)
             {
-                var read = stream.Value.Read(buffer);
+                var read = stream.Value.Read(buffer, 0, buffer.Length);
                 if (read > 0)
                 {
                     var readBytes = new byte[read];
@@ -264,7 +264,7 @@ namespace jp.kshoji.unity.nearby.sample
                                 return;
                             }
                             sendStreamPayload = NearbyConnectionsManager.Instance.StartSendStream();
-                            sendStreamPayload.Write(sendData);
+                            sendStreamPayload.Write(sendData, 0, sendData.Length);
                             receivedMessages.Add($"StartStream payload: {sendStreamPayload}");
                         }
                         else
@@ -278,7 +278,7 @@ namespace jp.kshoji.unity.nearby.sample
                                 return;
                             }
 
-                            sendStreamPayload.Write(sendData);
+                            sendStreamPayload.Write(sendData, 0, sendData.Length);
                         }
                     }
 
@@ -294,15 +294,21 @@ namespace jp.kshoji.unity.nearby.sample
 
                     if (GUILayout.Button("Send a File"))
                     {
-                        IEnumerator GetFileContentsAndSend(string filePath)
+                        IEnumerator GetFileContentsAndSend(string filePath_)
                         {
-                            var request = UnityWebRequest.Get(filePath);
+                            var request = UnityWebRequest.Get(filePath_);
                             yield return request.SendWebRequest();
+#if UNITY_2020_1_OR_NEWER
                             if (request.result == UnityWebRequest.Result.Success)
+#else
+                            if (request.error == null)
+#endif
                             {
                                 var tempFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName());
-                                using var fileStream = new FileStream(tempFileName, FileMode.OpenOrCreate);
-                                fileStream.Write(request.downloadHandler.data, 0, request.downloadHandler.data.Length);
+                                using (var fileStream = new FileStream(tempFileName, FileMode.OpenOrCreate))
+                                {
+                                    fileStream.Write(request.downloadHandler.data, 0, request.downloadHandler.data.Length);
+                                }
  
                                 var payloadId = NearbyConnectionsManager.Instance.Send(tempFileName);
                                 receivedMessages.Add($"Send File payloadId: {payloadId}");
@@ -313,7 +319,7 @@ namespace jp.kshoji.unity.nearby.sample
                             }
                             else
                             {
-                                Debug.LogError($"File {filePath} not found.");
+                                Debug.LogError($"File {filePath_} not found.");
                             }
                         }
 
