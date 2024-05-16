@@ -383,7 +383,8 @@ namespace jp.kshoji.unity.nearby
                         {
                             if (keyValue.Value == payloadId)
                             {
-                                keyValue.Key.OutputStream.Write((byte[])((object[])o)[2]);
+                                var payloadBytes = (byte[])((object[])o)[2];
+                                keyValue.Key.OutputStream.Write(payloadBytes, 0, payloadBytes.Length);
                                 break;
                             }
                         }
@@ -391,7 +392,8 @@ namespace jp.kshoji.unity.nearby
                     else
                     {
                         var stream = new PairedStream();
-                        stream.OutputStream.Write((byte[])((object[])o)[2]);
+                        var payloadBytes = (byte[])((object[])o)[2];
+                        stream.OutputStream.Write(payloadBytes, 0, payloadBytes.Length);
                         Instance.OnReceiveStream((string)((object[])o)[0], (long)((object[])o)[1], stream.InputStream);
                         Instance.streamPayloadDictionary.Add(stream, payloadId);
                     }
@@ -1172,9 +1174,9 @@ namespace jp.kshoji.unity.nearby
         /// <returns>the started stream to write data</returns>
         public Stream StartSendStream(string endpointId = null)
         {
-            IEnumerator SendStreamCoroutine(PairedStream stream, string endpointId = null)
+            IEnumerator SendStreamCoroutine(PairedStream stream_, string endpointId_ = null)
             {
-                var inputStream = stream.InputStream;
+                var inputStream = stream_.InputStream;
                 var buffer = new byte[1024];
                 while (true)
                 {
@@ -1186,11 +1188,11 @@ namespace jp.kshoji.unity.nearby
                     catch (ObjectDisposedException e)
                     {
                         // Stream closed
-                        if (streamPayloadDictionary.ContainsKey(stream))
+                        if (streamPayloadDictionary.ContainsKey(stream_))
                         {
-                            var payloadId = streamPayloadDictionary[stream];
+                            var payloadId = streamPayloadDictionary[stream_];
                             SendStream(payloadId, new byte []{ });
-                            streamPayloadDictionary.Remove(stream);
+                            streamPayloadDictionary.Remove(stream_);
                         }
                         Debug.LogException(e);
                         yield break;
@@ -1199,28 +1201,28 @@ namespace jp.kshoji.unity.nearby
                     {
                         var payloadBytes = new byte[payloadLength];
                         Array.Copy(buffer, 0, payloadBytes, 0, payloadLength);
-                        if (streamPayloadDictionary.ContainsKey(stream))
+                        if (streamPayloadDictionary.ContainsKey(stream_))
                         {
-                            var payloadId = streamPayloadDictionary[stream];
+                            var payloadId = streamPayloadDictionary[stream_];
                             SendStream(payloadId, payloadBytes);
                         }
                         else
                         {
-                            var payloadId = SendStream(payloadBytes, endpointId);
+                            var payloadId = SendStream(payloadBytes, endpointId_);
                             if (payloadId != 0)
                             {
-                                streamPayloadDictionary.Add(stream, payloadId);
+                                streamPayloadDictionary.Add(stream_, payloadId);
                             }
                         }
                     }
                     else if (payloadLength == -1)
                     {
                         // Stream closed
-                        if (streamPayloadDictionary.ContainsKey(stream))
+                        if (streamPayloadDictionary.ContainsKey(stream_))
                         {
-                            var payloadId = streamPayloadDictionary[stream];
+                            var payloadId = streamPayloadDictionary[stream_];
                             SendStream(payloadId, new byte []{ });
-                            streamPayloadDictionary.Remove(stream);
+                            streamPayloadDictionary.Remove(stream_);
                         }
                         yield break;
                     }
