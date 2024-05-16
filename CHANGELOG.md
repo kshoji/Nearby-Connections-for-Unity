@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this package will be documented in this file. 
 
+## [v0.0.7] - 2024-05-16
+
+* Fix compile error with Unity 2019, 2020
+
 ## [v0.0.6] - 2024-04-30
 
 * Add Android proguard configuration
