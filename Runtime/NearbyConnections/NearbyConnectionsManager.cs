@@ -82,11 +82,6 @@ namespace jp.kshoji.unity.nearby
 #endif
         }
 
-        ~NearbyConnectionsManager()
-        {
-            Terminate();
-        }
-
 #if UNITY_IOS || UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
 #if UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
         private const string DllName = "NearbyUnityPlugin-osx";
